@@ -1,0 +1,4 @@
+provider: github
+owner: Saketh-Chandra
+repo: Briefly
+updaterCacheDirName: briefly-updater

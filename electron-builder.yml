@@ -1,0 +1,44 @@
+appId: com.sakethchandra.briefly
+productName: Briefly
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+  - drizzle/**
+win:
+  executableName: Briefly
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSMicrophoneUsageDescription: Briefly needs microphone access to capture your voice during meetings.
+    - NSScreenCaptureUsageDescription: Briefly needs screen recording access to capture meeting audio.
+  notarize: false
+dmg:
+  artifactName: ${productName}-${version}.${ext}
+  size: 2g
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: Saketh Chandra
+  category: Utility
+appImage:
+  artifactName: ${productName}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: Saketh-Chandra
+  repo: Briefly

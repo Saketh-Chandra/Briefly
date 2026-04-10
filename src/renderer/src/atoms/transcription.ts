@@ -1,0 +1,214 @@
+import { atom } from 'jotai'
+import type { TranscriptChunk } from '../../../main/lib/types'
+
+// ---------------------------------------------------------------------------
+// Audio decode helper — must run in renderer main thread (OfflineAudioContext
+// is not available inside Web Workers)
+// ---------------------------------------------------------------------------
+async function decodeAudioToPcm(arrayBuffer: ArrayBuffer): Promise<Float32Array> {
+  const audioCtx = new OfflineAudioContext(1, 1, 16000)
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer)
+
+  if (decoded.sampleRate === 16000 && decoded.numberOfChannels === 1) {
+    return decoded.getChannelData(0)
+  }
+
+  const targetLength = Math.round(decoded.duration * 16000)
+  const resampleCtx = new OfflineAudioContext(1, targetLength, 16000)
+  const source = resampleCtx.createBufferSource()
+  source.buffer = decoded
+  source.connect(resampleCtx.destination)
+  source.start()
+  const resampled = await resampleCtx.startRendering()
+  return resampled.getChannelData(0)
+}
+
+export type TranscriptionStage =
+  | 'idle'
+  | 'downloading-model'
+  | 'transcribing'
+  | 'processing-llm'
+  | 'done'
+  | 'error'
+
+export interface TranscriptionState {
+  meetingId: number | null
+  stage: TranscriptionStage
+  progress: number        // 0–100
+  chunks: TranscriptChunk[]
+  error: string | null
+  llmStep: number         // 0–3
+  llmLabel: string
+}
+
+export const initialTranscriptionState: TranscriptionState = {
+  meetingId: null,
+  stage: 'idle',
+  progress: 0,
+  chunks: [],
+  error: null,
+  llmStep: 0,
+  llmLabel: '',
+}
+
+/** Module-level Worker ref — survives re-renders without living in React state */
+let workerRef: Worker | null = null
+
+/** Base state atom for the transcription pipeline */
+export const transcriptionAtom = atom<TranscriptionState>(initialTranscriptionState)
+
+/** Derived atom — stage only, for granular subscriptions that avoid progress noise */
+export const transcriptionStageAtom = atom((get) => get(transcriptionAtom).stage)
+
+/** Derived atom — progress value only */
+export const transcriptionProgressAtom = atom((get) => get(transcriptionAtom).progress)
+
+/** Derived atom — LLM step index only */
+export const transcriptionLlmStepAtom = atom((get) => get(transcriptionAtom).llmStep)
+
+/** Start the full transcription + LLM pipeline for the given meetingId.
+ *  Manages the Whisper Worker via the module-level workerRef so the Worker
+ *  lifecycle is not tied to any specific component mount/unmount cycle. */
+export const startPipelineAtom = atom(
+  null,
+  async (get, set, meetingId: number): Promise<void> => {
+    if (get(transcriptionAtom).stage !== 'idle') return
+
+    set(transcriptionAtom, { ...initialTranscriptionState, meetingId, stage: 'downloading-model' })
+
+    const unsubLlm = window.api.onLlmProgress((event) => {
+      if (event.meetingId === meetingId) {
+        set(transcriptionAtom, (prev): TranscriptionState => ({
+          ...prev,
+          llmStep: event.step,
+          llmLabel: event.label,
+          progress: Math.round((event.step / 3) * 100),
+        }))
+      }
+    })
+
+    const unsubDone = window.api.onLlmDone((event) => {
+      if (event.meetingId === meetingId) {
+        set(transcriptionAtom, (prev): TranscriptionState => ({
+          ...prev,
+          stage: 'done',
+          progress: 100,
+        }))
+        unsubLlm()
+        unsubDone()
+      }
+    })
+
+    try {
+      const { modelCachePath } = await window.api.getPaths()
+      const settings = await window.api.getSettings()
+
+      if (workerRef) workerRef.terminate()
+      const worker = new Worker(
+        new URL('../workers/whisper.worker.ts', import.meta.url),
+        { type: 'module' }
+      )
+      workerRef = worker
+
+      // Initialise model — wait for model_ready before proceeding
+      await new Promise<void>((resolve, reject) => {
+        worker.onmessage = (e) => {
+          const msg = e.data
+          if (msg.type === 'model_loading') {
+            set(transcriptionAtom, (prev): TranscriptionState => ({
+              ...prev,
+              progress: msg.progress ?? 0,
+            }))
+          }
+          if (msg.type === 'model_ready') {
+            set(transcriptionAtom, (prev): TranscriptionState => ({
+              ...prev,
+              stage: 'transcribing',
+              progress: 0,
+            }))
+            resolve()
+          }
+          if (msg.type === 'error') reject(new Error(msg.message))
+        }
+        worker.onerror = (e) => reject(new Error(e.message))
+        worker.postMessage({
+          type: 'init',
+          modelId: settings.whisperModel,
+          modelCachePath,
+          ...(settings.hfEndpoint ? { hfEndpoint: settings.hfEndpoint } : {}),
+        })
+      })
+
+      const meeting = await window.api.getMeeting(meetingId)
+      if (!meeting) throw new Error(`Meeting ${meetingId} not found`)
+
+      // Read audio in main process — fetch('file://') is blocked in workers
+      const audioData = await window.api.readAudio(meeting.audio_path)
+
+      // Decode Opus → 16kHz mono Float32 PCM in the renderer main thread.
+      // OfflineAudioContext is NOT available in Web Workers; it must run here.
+      const pcmData = await decodeAudioToPcm(audioData)
+
+      await window.api.startTranscription(meetingId)
+
+      const chunks: TranscriptChunk[] = []
+      const transcriptText = await new Promise<string>((resolve, reject) => {
+        worker.onmessage = (e) => {
+          const msg = e.data
+          if (msg.type === 'chunk') {
+            const chunk: TranscriptChunk = { text: msg.text, start: msg.start, end: msg.end }
+            chunks.push(chunk)
+            set(transcriptionAtom, (prev): TranscriptionState => ({
+              ...prev,
+              chunks: [...prev.chunks, chunk],
+            }))
+          }
+          if (msg.type === 'done') resolve(msg.text)
+          if (msg.type === 'error') reject(new Error(msg.message))
+        }
+        worker.onerror = (e) => reject(new Error(e.message))
+        // Transfer Float32Array buffer zero-copy into the worker
+        worker.postMessage({
+          type: 'transcribe',
+          pcmData,
+          modelId: settings.whisperModel,
+          language: settings.whisperLanguage,
+        }, [pcmData.buffer])
+      })
+
+      await window.api.saveTranscript({
+        meetingId,
+        content: transcriptText,
+        chunks,
+        model: settings.whisperModel,
+      })
+
+      set(transcriptionAtom, (prev): TranscriptionState => ({
+        ...prev,
+        stage: 'processing-llm',
+        progress: 0,
+      }))
+
+      await window.api.processTranscript(meetingId)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      set(transcriptionAtom, (prev): TranscriptionState => ({
+        ...prev,
+        stage: 'error',
+        error: message,
+      }))
+      unsubLlm()
+      unsubDone()
+    }
+  }
+)
+
+/** Terminate any active Worker and reset transcription state to idle. */
+export const resetTranscriptionAtom = atom(
+  null,
+  (_get, set): void => {
+    workerRef?.terminate()
+    workerRef = null
+    set(transcriptionAtom, initialTranscriptionState)
+  }
+)
