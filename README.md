@@ -1,6 +1,6 @@
 # Briefly
 
-Briefly is a macOS desktop app for recording meeting audio, transcribing it locally with Whisper, and generating summaries, action items, and journal entries with a configurable LLM endpoint.
+Briefly is a macOS desktop app for recording meeting audio, transcribing it locally with Whisper, and generating summaries, to-dos, and journal entries with a configurable LLM endpoint.
 
 The app combines an Electron shell, a React and TypeScript renderer, a native Swift capture binary for system audio, local SQLite storage via Drizzle, and a Web Worker powered by `@huggingface/transformers` for transcription.
 
@@ -11,7 +11,7 @@ Briefly is under active development, but the main end-to-end pieces already exis
 - Native macOS capture via a Swift CLI in `capture/`
 - Renderer UI for dashboard, recordings, transcript, journal, and settings
 - Local Whisper model download and transcription pipeline
-- OpenAI-compatible LLM post-processing for summaries and journal output
+- OpenAI-compatible LLM post-processing for summaries, to-dos, and journal output
 - SQLite-backed meeting storage and Electron notifications
 
 For the most reliable implementation snapshot, start with `docs/current-state.md`.

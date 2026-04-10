@@ -1,7 +1,7 @@
 {
   "name": "briefly",
   "version": "1.0.0",
-  "description": "macOS desktop app for recording meetings, transcribing locally with Whisper, and generating LLM-powered summaries",
+  "description": "macOS desktop app for recording meetings, transcribing locally with Whisper, and generating LLM-powered summaries, to-dos, and journal entries",
   "main": "./out/main/index.js",
   "author": "Saketh Chandra",
   "homepage": "https://github.com/Saketh-Chandra/Briefly",
