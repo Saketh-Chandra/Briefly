@@ -2,9 +2,10 @@ import React from 'react'
 import type { MeetingStatus } from '../../../main/lib/types'
 import { cn } from '../lib/utils'
 
-const statuses: MeetingStatus[] = ['recorded', 'transcribing', 'transcribed', 'processing', 'done', 'error']
+const statuses: MeetingStatus[] = ['recording', 'recorded', 'transcribing', 'transcribed', 'processing', 'done', 'error']
 
 const labels: Record<MeetingStatus, string> = {
+  recording:    'Recording',
   recorded:     'Recorded',
   transcribing: 'Transcribing',
   transcribed:  'Transcribed',

@@ -9,7 +9,7 @@ export const meetings = sqliteTable('meetings', {
   duration_s: integer('duration_s'),
   audio_path: text('audio_path').notNull(),
   status: text('status', {
-    enum: ['recorded', 'transcribing', 'transcribed', 'processing', 'done', 'error'] as const
+    enum: ['recording', 'recorded', 'transcribing', 'transcribed', 'processing', 'done', 'error'] as const
   }).notNull().default('recorded'),
   created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),

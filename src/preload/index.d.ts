@@ -33,7 +33,7 @@ declare global {
 
       // Transcription
       getPaths: () => Promise<{ userData: string; modelCachePath: string }>
-      startTranscription: (meetingId: number) => Promise<void>
+      startTranscription: (meetingId: number) => Promise<{ audioPath: string }>
       saveTranscript: (params: {
         meetingId: number
         content: string

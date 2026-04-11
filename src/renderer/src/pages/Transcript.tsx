@@ -43,7 +43,26 @@ export default function Transcript(): React.JSX.Element {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
-  // Auto-start pipeline when meeting just recorded
+  useEffect(() => {
+    const unsubCapture = window.api.onCaptureEvent((event) => {
+      if (event.type === 'stopped' || event.type === 'error') {
+        void load()
+      }
+    })
+
+    const unsubTranscription = window.api.onTranscriptionStatus((event) => {
+      if (event.meetingId === meetingId) {
+        void load()
+      }
+    })
+
+    return () => {
+      unsubCapture()
+      unsubTranscription()
+    }
+  }, [meetingId, load])
+
+  // Auto-start pipeline once the recording has actually finished writing.
   useEffect(() => {
     if (meeting?.status === 'recorded') {
       void startPipeline(meetingId)

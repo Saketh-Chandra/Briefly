@@ -139,17 +139,14 @@ export const startPipelineAtom = atom(
         })
       })
 
-      const meeting = await window.api.getMeeting(meetingId)
-      if (!meeting) throw new Error(`Meeting ${meetingId} not found`)
+      const { audioPath } = await window.api.startTranscription(meetingId)
 
-      // Read audio in main process — fetch('file://') is blocked in workers
-      const audioData = await window.api.readAudio(meeting.audio_path)
+      // Read audio in main process after the main process has validated the file.
+      const audioData = await window.api.readAudio(audioPath)
 
       // Decode Opus → 16kHz mono Float32 PCM in the renderer main thread.
       // OfflineAudioContext is NOT available in Web Workers; it must run here.
       const pcmData = await decodeAudioToPcm(audioData)
-
-      await window.api.startTranscription(meetingId)
 
       const chunks: TranscriptChunk[] = []
       const transcriptText = await new Promise<string>((resolve, reject) => {

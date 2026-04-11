@@ -63,8 +63,8 @@ const api = {
     ipcRenderer.invoke('transcription:get-paths'),
 
   // Kick off transcription for a meeting that has status='recorded'.
-  // Resolves when the main process has validated and handed off (not when complete).
-  startTranscription: (meetingId: number): Promise<void> =>
+  // Resolves with the validated audio path once the main process has accepted the handoff.
+  startTranscription: (meetingId: number): Promise<{ audioPath: string }> =>
     ipcRenderer.invoke('transcription:start', meetingId),
 
   // Called by the renderer worker once Whisper finishes.

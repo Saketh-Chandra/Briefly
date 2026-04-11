@@ -53,15 +53,26 @@ export function registerTranscriptionHandlers(getSender: () => WebContents | nul
   ipcMain.handle('transcription:start', async (_event, meetingId: number) => {
     const meeting = getMeetingById(meetingId)
     if (!meeting) throw new Error(`Meeting ${meetingId} not found`)
+
+    const sender = getSender()
+    const emitStatus = (status: 'transcribing' | 'error', error?: string): void => {
+      if (sender && !sender.isDestroyed()) {
+        sender.send('transcription:status', { meetingId, status, ...(error ? { error } : {}) })
+      }
+    }
+
     if (meeting.status !== 'recorded') {
       throw new Error(`Meeting ${meetingId} is not in 'recorded' state (got '${meeting.status}')`)
     }
-    updateMeetingStatus(meetingId, 'transcribing')
-
-    const sender = getSender()
-    if (sender && !sender.isDestroyed()) {
-      sender.send('transcription:status', { meetingId, status: 'transcribing' })
+    if (!existsSync(meeting.audio_path) || statSync(meeting.audio_path).size === 0) {
+      const message = `Audio file not found: ${meeting.audio_path}`
+      updateMeetingStatus(meetingId, 'error')
+      emitStatus('error', message)
+      throw new Error(message)
     }
+
+    updateMeetingStatus(meetingId, 'transcribing')
+    emitStatus('transcribing')
 
     return { audioPath: meeting.audio_path }
   })

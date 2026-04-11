@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq, desc, sql } from 'drizzle-orm'
 import { app } from 'electron'
+import { existsSync, statSync } from 'fs'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { meetings, transcripts, summaries, screenshots } from './schema'
@@ -35,7 +36,12 @@ export function insertMeeting(params: {
 }): number {
   const result = getDb()
     .insert(meetings)
-    .values({ session_id: params.sessionId, audio_path: params.audioPath, date: params.date })
+    .values({
+      session_id: params.sessionId,
+      audio_path: params.audioPath,
+      date: params.date,
+      status: 'recording'
+    })
     .run()
   return Number(result.lastInsertRowid)
 }
@@ -181,12 +187,38 @@ export function resetMeetingForReprocessing(meetingId: number): void {
 }
 
 /**
- * Reset any meetings left stuck in 'transcribing' or 'processing' state.
- * These occur when the app crashes or is force-quit mid-pipeline.
- * Reset to 'recorded' so the user can retry transcription.
+ * Reconcile meetings left mid-flight after a crash or force-quit.
+ * - 'recording' becomes 'recorded' only if audio was actually written.
+ * - 'transcribing' and 'processing' reset to 'recorded' so the user can retry.
  */
+function hasRecordedAudio(audioPath: string): boolean {
+  if (!existsSync(audioPath)) return false
+  try {
+    return statSync(audioPath).size > 0
+  } catch {
+    return false
+  }
+}
+
 export function resetStuckMeetings(): void {
   const db = getDb()
+
+  const interruptedRecordings = db
+    .select({ id: meetings.id, audio_path: meetings.audio_path })
+    .from(meetings)
+    .where(eq(meetings.status, 'recording'))
+    .all()
+
+  for (const meeting of interruptedRecordings) {
+    db.update(meetings)
+      .set({
+        status: hasRecordedAudio(meeting.audio_path) ? 'recorded' : 'error',
+        updated_at: sql`(datetime('now'))`
+      })
+      .where(eq(meetings.id, meeting.id))
+      .run()
+  }
+
   db.update(meetings)
     .set({ status: 'recorded', updated_at: sql`(datetime('now'))` })
     .where(sql`${meetings.status} IN ('transcribing', 'processing')`)

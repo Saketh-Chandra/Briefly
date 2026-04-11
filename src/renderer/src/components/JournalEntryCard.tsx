@@ -50,7 +50,9 @@ export default function JournalEntryCard({ meeting }: JournalEntryCardProps): Re
           <JournalPanel meetingId={meeting.id} journal={journal} />
         ) : (
           <p className="text-sm italic text-muted-foreground">
-            {meeting.status === 'error'
+            {meeting.status === 'recording'
+              ? 'Recording in progress…'
+              : meeting.status === 'error'
               ? 'Processing failed — open the recording to retry.'
               : 'Still processing…'}
           </p>

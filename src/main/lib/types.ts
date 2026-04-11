@@ -34,6 +34,7 @@ export interface Meeting {
 }
 
 export type MeetingStatus =
+  | 'recording'
   | 'recorded'
   | 'transcribing'
   | 'transcribed'
