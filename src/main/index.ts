@@ -6,12 +6,13 @@ import { getDb } from './lib/db'
 import { resetStuckMeetings } from './lib/db'
 import { applyProxy } from './lib/proxy'
 import { getSettings } from './lib/settings'
-import { registerCaptureHandlers } from './ipc/capture'
+import { registerCaptureHandlers, setTrayWindowGetter } from './ipc/capture'
 import { registerStorageHandlers } from './ipc/storage'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerTranscriptionHandlers } from './ipc/transcription'
 import { registerLlmHandlers } from './ipc/llm'
 import { registerNotificationHandlers } from './lib/notifications'
+import { initTray, destroyTray } from './lib/tray'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -39,6 +40,14 @@ function createWindow(): void {
     mainWindow!.show()
   })
 
+  // macOS: hide instead of destroy so the app stays alive in the background
+  mainWindow.on('close', (e) => {
+    if (process.platform === 'darwin') {
+      e.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -62,16 +71,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Run DB migrations on startup
-  getDb()
-
-  // Reset meetings stuck in mid-pipeline states from a previous crash/force-quit
-  resetStuckMeetings()
-
-  // Apply proxy settings before any network activity
-  await applyProxy(getSettings().proxy)
-
-  // Register all IPC handlers
+  // Register all IPC handlers before window so renderer calls don't race
   registerCaptureHandlers(getSender)
   registerStorageHandlers()
   registerSettingsHandlers()
@@ -79,14 +79,40 @@ app.whenReady().then(async () => {
   registerLlmHandlers(getSender)
   registerNotificationHandlers()
 
+  // Show the window immediately — don't let DB/proxy init block it
   createWindow()
+
+  // Tray — init after window so getWindow() is valid
+  const getWindow = () => mainWindow
+  setTrayWindowGetter(getWindow)
+  if (process.platform === 'darwin') {
+    initTray(getWindow)
+  }
+
+  // DB init and proxy can run after the window is up
+  try {
+    getDb()
+    resetStuckMeetings()
+  } catch (err) {
+    console.error('[startup] DB init failed:', err)
+  }
+
+  try {
+    await applyProxy(getSettings().proxy)
+  } catch (err) {
+    console.error('[startup] Proxy init failed:', err)
+  }
 
   globalShortcut.register('CommandOrControl+Shift+R', () => {
     mainWindow?.webContents.send('shortcut:toggle-recording')
   })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    } else {
+      mainWindow?.show()
+    }
   })
 })
 
@@ -96,4 +122,5 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  destroyTray()
 })

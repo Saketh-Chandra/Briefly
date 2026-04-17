@@ -5,12 +5,25 @@ import Sidebar from './Sidebar'
 import { useRecording } from '../../contexts/RecordingContext'
 
 export default function AppShell(): React.JSX.Element {
-  const { toggleRecording } = useRecording()
+  const { toggleRecording, startRecording, stopRecording, state } = useRecording()
   const navigate = useNavigate()
 
   useEffect(() => {
     return window.api.onToggleRecordingShortcut(() => void toggleRecording())
   }, [toggleRecording])
+
+  // macOS tray commands — same code paths as UI buttons, React owns all state
+  useEffect(() => {
+    return window.api.onTrayCommand((command) => {
+      if (command === 'start') {
+        if (state.status === 'idle') void startRecording(true)
+      } else if (command === 'stop') {
+        if (state.status === 'recording') void stopRecording()
+      } else if (command === 'screenshot') {
+        void window.api.takeScreenshot()
+      }
+    })
+  }, [startRecording, stopRecording, state.status])
 
   // Navigate to the correct page when a system notification is clicked
   useEffect(() => {

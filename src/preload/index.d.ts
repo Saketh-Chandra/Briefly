@@ -78,6 +78,7 @@ declare global {
       updateJournal: (meetingId: number, journal: string) => Promise<void>
       resetForReprocessing: (meetingId: number) => Promise<void>
       onToggleRecordingShortcut: (cb: () => void) => () => void
+      onTrayCommand: (cb: (command: 'start' | 'stop' | 'screenshot') => void) => () => void
       onNavigate: (cb: (path: string) => void) => () => void
       showNotification: (title: string, body: string) => void
     }

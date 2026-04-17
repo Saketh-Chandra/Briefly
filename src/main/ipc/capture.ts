@@ -12,6 +12,13 @@ import {
 } from '../lib/db'
 import type { CliEvent } from '../lib/types'
 import { notifyRecordingSaved, notifyError } from '../lib/notifications'
+import { updateTrayState } from '../lib/tray'
+
+// Injected by index.ts after the window is created
+let _getWindow: () => import('electron').BrowserWindow | null = () => null
+export function setTrayWindowGetter(fn: () => import('electron').BrowserWindow | null): void {
+  _getWindow = fn
+}
 
 // One active session at a time (POC constraint)
 let activeSession: CaptureSession | null = null
@@ -20,7 +27,6 @@ let activeSessionId: string | null = null
 let screenshotCounter = 0
 
 export function registerCaptureHandlers(getSender: () => WebContents | null): void {
-
   ipcMain.handle('capture:list-windows', async () => {
     return listWindows()
   })
@@ -59,6 +65,7 @@ export function registerCaptureHandlers(getSender: () => WebContents | null): vo
           activeSession = null
           activeMeetingId = null
           activeSessionId = null
+          updateTrayState(false, _getWindow)
         }
 
         if (msg.type === 'error') {
@@ -67,6 +74,7 @@ export function registerCaptureHandlers(getSender: () => WebContents | null): vo
             updateMeetingStatus(activeMeetingId, 'error')
           }
           notifyError('Recording', msg.message)
+          updateTrayState(false, _getWindow)
         }
       },
       (code) => {
@@ -78,6 +86,7 @@ export function registerCaptureHandlers(getSender: () => WebContents | null): vo
     await session.waitForReady()
     session.startRecording(audioPath, opts.mixMic)
     activeSession = session
+    updateTrayState(true, _getWindow)
 
     return { sessionId, meetingId, audioPath }
   })

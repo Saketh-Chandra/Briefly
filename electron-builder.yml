@@ -20,6 +20,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  identity: null
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSMicrophoneUsageDescription: Briefly needs microphone access to capture your voice during meetings.

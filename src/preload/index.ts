@@ -162,6 +162,17 @@ const api = {
     return () => ipcRenderer.removeListener('shortcut:toggle-recording', handler)
   },
 
+  // Fired when the user chooses a command from the macOS menu bar tray.
+  // command: 'start' | 'stop' | 'screenshot'
+  onTrayCommand: (cb: (command: 'start' | 'stop' | 'screenshot') => void): (() => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      command: 'start' | 'stop' | 'screenshot'
+    ): void => cb(command)
+    ipcRenderer.on('tray:command', handler)
+    return () => ipcRenderer.removeListener('tray:command', handler)
+  },
+
   // Fired when the user clicks a system notification — navigate to the given route.
   onNavigate: (cb: (path: string) => void): (() => void) => {
     const handler = (_: Electron.IpcRendererEvent, path: string) => cb(path)
