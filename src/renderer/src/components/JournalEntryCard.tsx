@@ -16,8 +16,11 @@ export default function JournalEntryCard({ meeting }: JournalEntryCardProps): Re
   const [journal, setJournal] = useState<string | null>(null)
 
   useEffect(() => {
-    window.api.getMeeting(meeting.id)
-      .then((detail) => { setJournal(detail?.summary?.journal ?? null) })
+    window.api
+      .getMeeting(meeting.id)
+      .then((detail) => {
+        setJournal(detail?.summary?.journal ?? null)
+      })
       .catch(console.error)
   }, [meeting.id])
 
@@ -53,8 +56,8 @@ export default function JournalEntryCard({ meeting }: JournalEntryCardProps): Re
             {meeting.status === 'recording'
               ? 'Recording in progress…'
               : meeting.status === 'error'
-              ? 'Processing failed — open the recording to retry.'
-              : 'Still processing…'}
+                ? 'Processing failed — open the recording to retry.'
+                : 'Still processing…'}
           </p>
         )}
       </CardContent>

@@ -3,12 +3,18 @@ import { existsSync, readdirSync, statSync } from 'fs'
 import { rmSync } from 'fs'
 import { join } from 'path'
 import {
-  getMeetings, getMeetingDetail, deleteMeeting, insertTranscript, getTranscript,
-  updateTodo, updateJournal, resetMeetingForReprocessing, getMeetingsByDate
+  getMeetings,
+  getMeetingDetail,
+  deleteMeeting,
+  insertTranscript,
+  getTranscript,
+  updateTodo,
+  updateJournal,
+  resetMeetingForReprocessing,
+  getMeetingsByDate
 } from '../lib/db'
 
 export function registerStorageHandlers(): void {
-
   ipcMain.handle('storage:get-meetings', () => {
     return getMeetings()
   })
@@ -47,9 +53,12 @@ export function registerStorageHandlers(): void {
     return getTranscript(meetingId)
   })
 
-  ipcMain.handle('storage:update-todo', (_event, meetingId: number, index: number, done: boolean) => {
-    updateTodo(meetingId, index, done)
-  })
+  ipcMain.handle(
+    'storage:update-todo',
+    (_event, meetingId: number, index: number, done: boolean) => {
+      updateTodo(meetingId, index, done)
+    }
+  )
 
   ipcMain.handle('storage:update-journal', (_event, meetingId: number, journal: string) => {
     updateJournal(meetingId, journal)

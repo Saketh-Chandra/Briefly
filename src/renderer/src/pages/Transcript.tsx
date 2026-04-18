@@ -6,8 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
 import { Separator } from '../components/ui/separator'
 import {
-  Dialog, DialogContent, DialogDescription,
-  DialogHeader, DialogTitle, DialogFooter
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
 } from '../components/ui/dialog'
 import PipelineStatus from '../components/PipelineStatus'
 import TranscriptViewer from '../components/TranscriptViewer'
@@ -40,7 +44,7 @@ export default function Transcript(): React.JSX.Element {
   useEffect(() => {
     void load()
     return () => reset()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export default function Transcript(): React.JSX.Element {
     if (meeting?.status === 'recorded') {
       void startPipeline(meetingId)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meeting?.status, meetingId])
 
   // Reload when pipeline finishes
@@ -107,7 +111,7 @@ export default function Transcript(): React.JSX.Element {
       '## Transcript',
       '',
       m.transcript?.content ?? '_No transcript_',
-      '',
+      ''
     ]
     if (m.summary?.summary) {
       lines.push('## Summary', '', m.summary.summary, '')
@@ -150,7 +154,9 @@ export default function Transcript(): React.JSX.Element {
   const fullText = isPipelineActive ? null : (meeting.transcript?.content ?? null)
 
   const pipelineStatus = isPipelineActive
-    ? (txState.stage === 'processing-llm' ? 'processing' : 'transcribing')
+    ? txState.stage === 'processing-llm'
+      ? 'processing'
+      : 'transcribing'
     : meeting.status
 
   return (
@@ -170,14 +176,32 @@ export default function Transcript(): React.JSX.Element {
         </div>
         <StatusBadge status={pipelineStatus} />
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Copy transcript" onClick={() => void handleCopy()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Copy transcript"
+            onClick={() => void handleCopy()}
+          >
             <Copy size={13} />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Export Markdown" onClick={() => void handleExport()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title="Export Markdown"
+            onClick={() => void handleExport()}
+          >
             <Download size={13} />
           </Button>
           {meeting.transcript && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Re-run LLM" onClick={() => void handleRerun()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title="Re-run LLM"
+              onClick={() => void handleRerun()}
+            >
               <RefreshCw size={13} />
             </Button>
           )}
@@ -218,7 +242,10 @@ export default function Transcript(): React.JSX.Element {
             <TabsTrigger value="journal">Journal</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <TabsContent
+            value="transcript"
+            className="min-h-0 flex-1 overflow-hidden mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+          >
             <TranscriptViewer chunks={chunks} fullText={fullText} isLive={liveTranscribing} />
           </TabsContent>
 
@@ -246,16 +273,20 @@ export default function Transcript(): React.JSX.Element {
           <DialogHeader>
             <DialogTitle>Delete recording?</DialogTitle>
             <DialogDescription>
-              This will permanently delete the audio file, transcript, summary, and all associated data. This cannot be undone.
+              This will permanently delete the audio file, transcript, summary, and all associated
+              data. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => void handleDelete()}>Delete</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleDelete()}>
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-

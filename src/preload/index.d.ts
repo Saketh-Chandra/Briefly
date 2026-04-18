@@ -1,10 +1,10 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
-  WindowInfo,
+  CaptureSource,
   Meeting,
   MeetingDetail,
   AppSettings,
-  CliEvent,
+  CaptureEvent,
   TranscriptChunk,
   Todo
 } from '../main/lib/types'
@@ -14,13 +14,17 @@ declare global {
     electron: ElectronAPI
     api: {
       // Capture
-      listWindows: () => Promise<WindowInfo[]>
+      getSources: () => Promise<CaptureSource[]>
+      checkPermissions: () => Promise<{ screen: string; mic: string }>
+      requestMicPermission: () => Promise<boolean>
       startRecording: (opts: {
         mixMic: boolean
+        sourceId: string | null
       }) => Promise<{ sessionId: string; meetingId: number; audioPath: string }>
-      stopRecording: () => Promise<void>
-      takeScreenshot: () => Promise<void>
-      onCaptureEvent: (cb: (event: CliEvent) => void) => () => void
+      writeAudioChunk: (sessionId: string, chunk: ArrayBuffer) => Promise<void>
+      finalizeRecording: (sessionId: string, durationS: number) => Promise<void>
+      takeScreenshot: () => Promise<string | null>
+      onCaptureEvent: (cb: (event: CaptureEvent) => void) => () => void
 
       // Storage
       getMeetings: () => Promise<Meeting[]>
@@ -53,18 +57,13 @@ declare global {
         todos: Todo[]
         journal: string
       }>
-      onLlmProgress: (cb: (event: {
-        meetingId: number
-        step: number
-        total: number
-        label: string
-      }) => void) => () => void
+      onLlmProgress: (
+        cb: (event: { meetingId: number; step: number; total: number; label: string }) => void
+      ) => () => void
       onLlmDone: (cb: (event: { meetingId: number }) => void) => () => void
-      onTranscriptionStatus: (cb: (event: {
-        meetingId: number
-        status: string
-        error?: string
-      }) => void) => () => void
+      onTranscriptionStatus: (
+        cb: (event: { meetingId: number; status: string; error?: string }) => void
+      ) => () => void
       getMeetingsByDate: (date: string) => Promise<Meeting[]>
       getModelStatus: (modelId: string) => Promise<{ present: boolean; sizeBytes: number }>
       deleteModel: (modelId: string) => Promise<void>

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
 
 interface DateNavigatorProps {
-  date: string   // YYYY-MM-DD
+  date: string // YYYY-MM-DD
   onChange: (date: string) => void
 }
 

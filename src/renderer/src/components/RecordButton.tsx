@@ -3,6 +3,7 @@ import { Mic, Square } from 'lucide-react'
 import { useRecording } from '../contexts/RecordingContext'
 import { Button } from './ui/button'
 import AudioWaveform from './AudioWaveform'
+import SourcePicker from './SourcePicker'
 
 interface RecordButtonProps {
   onStarted?: (meetingId: number) => void
@@ -10,7 +11,9 @@ interface RecordButtonProps {
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
+  const m = Math.floor((seconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0')
   const s = (seconds % 60).toString().padStart(2, '0')
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`
 }
@@ -37,10 +40,14 @@ export default function RecordButton({ onStarted }: RecordButtonProps): React.JS
         className="flex items-center gap-4 rounded-2xl border px-7 py-4 transition-all duration-200 hover:scale-[1.01] disabled:opacity-50"
         style={{
           borderColor: 'var(--briefly-record)',
-          backgroundColor: 'color-mix(in oklch, var(--briefly-record) 8%, transparent)',
+          backgroundColor: 'color-mix(in oklch, var(--briefly-record) 8%, transparent)'
         }}
       >
-        <AudioWaveform level={state.audioLevel} active={state.status === 'recording'} barCount={7} />
+        <AudioWaveform
+          level={state.audioLevel}
+          active={state.status === 'recording'}
+          barCount={7}
+        />
         <span
           className="font-mono text-[15px] font-medium tabular-nums"
           style={{ color: 'var(--briefly-record)' }}
@@ -59,18 +66,21 @@ export default function RecordButton({ onStarted }: RecordButtonProps): React.JS
   }
 
   return (
-    <Button
-      size="lg"
-      onClick={() => void handleClick()}
-      disabled={isSaving}
-      className="gap-2.5 rounded-xl px-8 py-6 text-[15px] font-semibold tracking-tight transition-all duration-200 hover:scale-[1.02]"
-      style={{
-        backgroundColor: 'var(--briefly-accent)',
-        color: 'oklch(0.1 0 0)',
-      }}
-    >
-      <Mic size={17} strokeWidth={2} />
-      {isSaving ? 'Saving…' : 'Start Recording'}
-    </Button>
+    <div className="flex flex-col items-center gap-2">
+      <Button
+        size="lg"
+        onClick={() => void handleClick()}
+        disabled={isSaving}
+        className="gap-2.5 rounded-xl px-8 py-6 text-[15px] font-semibold tracking-tight transition-all duration-200 hover:scale-[1.02]"
+        style={{
+          backgroundColor: 'var(--briefly-accent)',
+          color: 'oklch(0.1 0 0)'
+        }}
+      >
+        <Mic size={17} strokeWidth={2} />
+        {isSaving ? 'Saving…' : 'Start Recording'}
+      </Button>
+      <SourcePicker />
+    </div>
   )
 }

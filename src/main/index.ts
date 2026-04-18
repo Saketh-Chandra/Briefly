@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, session, desktopCapturer } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -6,7 +6,7 @@ import { getDb } from './lib/db'
 import { resetStuckMeetings } from './lib/db'
 import { applyProxy } from './lib/proxy'
 import { getSettings } from './lib/settings'
-import { registerCaptureHandlers, setTrayWindowGetter } from './ipc/capture'
+import { registerCaptureHandlers, setTrayWindowGetter, claimPendingSourceId } from './ipc/capture'
 import { registerStorageHandlers } from './ipc/storage'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerTranscriptionHandlers } from './ipc/transcription'
@@ -28,7 +28,7 @@ function createWindow(): void {
     minHeight: 500,
     show: false,
     autoHideMenuBar: true,
-    titleBarStyle: 'hiddenInset',  // macOS: keep traffic lights, enable drag region via CSS
+    titleBarStyle: 'hiddenInset', // macOS: keep traffic lights, enable drag region via CSS
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -71,8 +71,24 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Grant system audio + screen access when the renderer calls getDisplayMedia.
+  // Uses the sourceId stored by capture:start (pendingSourceId pattern).
+  // audio: 'loopback' → CoreAudio Tap on macOS 14.2+ (Electron 39 default), WASAPI on Windows.
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } })
+      .then((sources) => {
+        const sourceId = claimPendingSourceId()
+        const chosen = sourceId
+          ? (sources.find((s) => s.id === sourceId) ?? sources[0])
+          : sources[0]
+        callback({ video: chosen, audio: 'loopback' })
+      })
+      .catch(() => callback({}))
+  })
+
   // Register all IPC handlers before window so renderer calls don't race
-  registerCaptureHandlers(getSender)
+  registerCaptureHandlers()
   registerStorageHandlers()
   registerSettingsHandlers()
   registerTranscriptionHandlers(getSender)

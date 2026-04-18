@@ -1,12 +1,14 @@
-// Window info returned by list-windows mode
-export interface WindowInfo {
-  id: number
-  title: string
-  app: string
+// Source info returned by desktopCapturer.getSources
+export interface CaptureSource {
+  id: string
+  name: string
+  display_id: string
+  thumbnail: string // base64 data URL (160×90 PNG)
+  appIcon: string | null // base64 data URL or null
 }
 
-// NDJSON events emitted by the Swift CLI → Node
-export type CliEvent =
+// Events emitted by the renderer CaptureSession via BroadcastChannel
+export type CaptureEvent =
   | { type: 'ready' }
   | { type: 'status'; state: 'recording' | 'stopping' }
   | { type: 'level'; rms: number }
@@ -14,18 +16,15 @@ export type CliEvent =
   | { type: 'stopped'; duration_s: number; path: string }
   | { type: 'error'; message: string }
 
-// NDJSON commands sent from Node → Swift CLI
-export type CliCommand =
-  | { cmd: 'start_recording'; output: string; mix_mic: boolean }
-  | { cmd: 'stop_recording' }
-  | { cmd: 'take_screenshot'; output: string }
+/** @deprecated Use CaptureEvent */
+export type CliEvent = CaptureEvent
 
 // Meeting row (from DB)
 export interface Meeting {
   id: number
   session_id: string
   title: string | null
-  date: string          // ISO 8601
+  date: string // ISO 8601
   duration_s: number | null
   audio_path: string
   status: MeetingStatus

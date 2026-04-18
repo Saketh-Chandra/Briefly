@@ -11,13 +11,10 @@ function todayISO(): string {
 export const meetingsAtom = atom<Meeting[]>([])
 
 /** Fetch all meetings from the database and populate meetingsAtom. */
-export const loadMeetingsAtom = atom(
-  null,
-  async (_get, set): Promise<void> => {
-    const all = await window.api.getMeetings()
-    set(meetingsAtom, all)
-  }
-)
+export const loadMeetingsAtom = atom(null, async (_get, set): Promise<void> => {
+  const all = await window.api.getMeetings()
+  set(meetingsAtom, all)
+})
 
 // ── Recordings page filters ───────────────────────────────────────────────────
 

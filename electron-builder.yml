@@ -10,7 +10,6 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
-  - resources/**
   - drizzle/**
 win:
   executableName: Briefly
@@ -25,6 +24,7 @@ mac:
   extendInfo:
     - NSMicrophoneUsageDescription: Briefly needs microphone access to capture your voice during meetings.
     - NSScreenCaptureUsageDescription: Briefly needs screen recording access to capture meeting audio.
+    - NSAudioCaptureUsageDescription: Briefly needs audio capture access to record system audio during meetings.
   notarize: false
 dmg:
   artifactName: ${productName}-${version}.${ext}

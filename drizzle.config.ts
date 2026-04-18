@@ -5,6 +5,6 @@ export default {
   out: './drizzle',
   dialect: 'sqlite',
   dbCredentials: {
-    url: `${process.env.HOME}/Library/Application Support/Briefly/briefly.db`,
-  },
+    url: `${process.env.HOME}/Library/Application Support/Briefly/briefly.db`
+  }
 } satisfies Config

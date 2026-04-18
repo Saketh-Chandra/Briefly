@@ -21,7 +21,7 @@ const router = createHashRouter([
       { path: 'journal', element: <Journal /> },
       { path: 'journal/:date', element: <Journal /> },
       { path: 'settings', element: <Settings /> },
-      { path: '*', element: <Navigate to="/" replace /> },
+      { path: '*', element: <Navigate to="/" replace /> }
     ]
   }
 ])
@@ -37,4 +37,3 @@ export default function App(): React.JSX.Element {
     </Provider>
   )
 }
-

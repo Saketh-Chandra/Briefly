@@ -1,25 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { CheckCircle, XCircle, Loader2, FolderOpen, Trash2, Download, X, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  FolderOpen,
+  Trash2,
+  Download,
+  X,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../components/ui/select'
 import { Separator } from '../components/ui/separator'
 import {
-  Dialog, DialogContent, DialogDescription,
-  DialogHeader, DialogTitle, DialogFooter
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
 } from '../components/ui/dialog'
 import type { ProxySettings } from '../../../main/lib/types'
 
 const WHISPER_MODELS = [
   { id: 'onnx-community/whisper-large-v3-turbo', label: 'Whisper Large v3 Turbo (~1.6 GB)' },
-  { id: 'onnx-community/whisper-base',           label: 'Whisper Base (~75 MB)' },
-  { id: 'onnx-community/whisper-tiny',           label: 'Whisper Tiny (~38 MB)' },
+  { id: 'onnx-community/whisper-base', label: 'Whisper Base (~75 MB)' },
+  { id: 'onnx-community/whisper-tiny', label: 'Whisper Tiny (~38 MB)' }
 ]
 
 const LANGUAGES = [
-  'english', 'auto', 'spanish', 'french', 'german',
-  'italian', 'portuguese', 'dutch', 'japanese', 'chinese',
+  'english',
+  'auto',
+  'spanish',
+  'french',
+  'german',
+  'italian',
+  'portuguese',
+  'dutch',
+  'japanese',
+  'chinese'
 ]
 
 async function checkBrowserCache(modelId: string): Promise<boolean> {
@@ -43,78 +71,84 @@ type TestState = 'idle' | 'loading' | 'ok' | 'error'
 
 export default function Settings(): React.JSX.Element {
   // LLM
-  const [baseURL, setBaseURL]       = useState('')
-  const [apiKey, setApiKey]         = useState('')
-  const [model, setModel]           = useState('gpt-4o')
+  const [baseURL, setBaseURL] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('gpt-4o')
   const [apiVersion, setApiVersion] = useState('')
-  const [testState, setTestState]   = useState<TestState>('idle')
-  const [testError, setTestError]   = useState('')
+  const [testState, setTestState] = useState<TestState>('idle')
+  const [testError, setTestError] = useState('')
 
   // Whisper
   const [whisperModel, setWhisperModel] = useState('onnx-community/whisper-large-v3-turbo')
-  const [whisperLang, setWhisperLang]   = useState('english')
+  const [whisperLang, setWhisperLang] = useState('english')
   const [modelPresent, setModelPresent] = useState(false)
-  const [modelSize, setModelSize]       = useState(0)
-  const [dlState, setDlState]           = useState<'idle' | 'downloading' | 'done' | 'error'>('idle')
-  const [dlProgress, setDlProgress]     = useState(0)
-  const [dlError, setDlError]           = useState('')
-  const dlWorkerRef                     = useRef<Worker | null>(null)
+  const [modelSize, setModelSize] = useState(0)
+  const [dlState, setDlState] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle')
+  const [dlProgress, setDlProgress] = useState(0)
+  const [dlError, setDlError] = useState('')
+  const dlWorkerRef = useRef<Worker | null>(null)
 
   // Storage
   const [diskUsage, setDiskUsage] = useState(0)
-  const [userData, setUserData]   = useState('')
+  const [userData, setUserData] = useState('')
   const [clearOpen, setClearOpen] = useState(false)
 
   // Advanced
   const [hfEndpoint, setHfEndpoint] = useState('')
-  const [advOpen, setAdvOpen]       = useState(false)
-  const [pingState, setPingState]   = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
-  const [pingError, setPingError]   = useState('')
+  const [advOpen, setAdvOpen] = useState(false)
+  const [pingState, setPingState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle')
+  const [pingError, setPingError] = useState('')
 
   // Proxy
   type ProxyMode = ProxySettings['mode']
-  const [proxyMode, setProxyMode]         = useState<ProxyMode>('system')
-  const [httpProxy, setHttpProxy]         = useState('')
-  const [httpPort, setHttpPort]           = useState('')
+  const [proxyMode, setProxyMode] = useState<ProxyMode>('system')
+  const [httpProxy, setHttpProxy] = useState('')
+  const [httpPort, setHttpPort] = useState('')
   const [useHttpForHttps, setUseHttpForHttps] = useState(false)
-  const [httpsProxy, setHttpsProxy]       = useState('')
-  const [httpsPort, setHttpsPort]         = useState('')
-  const [socksHost, setSocksHost]         = useState('')
-  const [socksPort, setSocksPort]         = useState('')
-  const [socksVersion, setSocksVersion]   = useState<4 | 5>(5)
+  const [httpsProxy, setHttpsProxy] = useState('')
+  const [httpsPort, setHttpsPort] = useState('')
+  const [socksHost, setSocksHost] = useState('')
+  const [socksPort, setSocksPort] = useState('')
+  const [socksVersion, setSocksVersion] = useState<4 | 5>(5)
   const [proxyDnsViaSocks, setProxyDnsViaSocks] = useState(false)
-  const [pacUrl, setPacUrl]               = useState('')
-  const [noProxy, setNoProxy]             = useState('')
+  const [pacUrl, setPacUrl] = useState('')
+  const [noProxy, setNoProxy] = useState('')
 
   useEffect(() => {
-    window.api.getSettings().then((s) => {
-      setBaseURL(s.llm.baseURL)
-      setModel(s.llm.model)
-      setApiVersion(s.llm.apiVersion ?? '')
-      if (s.whisperModel) setWhisperModel(s.whisperModel)
-      if (s.whisperLanguage) setWhisperLang(s.whisperLanguage)
-      if (s.hfEndpoint) setHfEndpoint(s.hfEndpoint)
-      if (s.proxy) {
-        const p = s.proxy
-        setProxyMode(p.mode)
-        setHttpProxy(p.httpProxy ?? '')
-        setHttpPort(p.httpPort != null ? String(p.httpPort) : '')
-        setUseHttpForHttps(p.useHttpForHttps ?? false)
-        setHttpsProxy(p.httpsProxy ?? '')
-        setHttpsPort(p.httpsPort != null ? String(p.httpsPort) : '')
-        setSocksHost(p.socksHost ?? '')
-        setSocksPort(p.socksPort != null ? String(p.socksPort) : '')
-        setSocksVersion(p.socksVersion ?? 5)
-        setProxyDnsViaSocks(p.proxyDnsViaSocks ?? false)
-        setPacUrl(p.pacUrl ?? '')
-        setNoProxy(p.noProxy ?? '')
-      }
-    }).catch(console.error)
+    window.api
+      .getSettings()
+      .then((s) => {
+        setBaseURL(s.llm.baseURL)
+        setModel(s.llm.model)
+        setApiVersion(s.llm.apiVersion ?? '')
+        if (s.whisperModel) setWhisperModel(s.whisperModel)
+        if (s.whisperLanguage) setWhisperLang(s.whisperLanguage)
+        if (s.hfEndpoint) setHfEndpoint(s.hfEndpoint)
+        if (s.proxy) {
+          const p = s.proxy
+          setProxyMode(p.mode)
+          setHttpProxy(p.httpProxy ?? '')
+          setHttpPort(p.httpPort != null ? String(p.httpPort) : '')
+          setUseHttpForHttps(p.useHttpForHttps ?? false)
+          setHttpsProxy(p.httpsProxy ?? '')
+          setHttpsPort(p.httpsPort != null ? String(p.httpsPort) : '')
+          setSocksHost(p.socksHost ?? '')
+          setSocksPort(p.socksPort != null ? String(p.socksPort) : '')
+          setSocksVersion(p.socksVersion ?? 5)
+          setProxyDnsViaSocks(p.proxyDnsViaSocks ?? false)
+          setPacUrl(p.pacUrl ?? '')
+          setNoProxy(p.noProxy ?? '')
+        }
+      })
+      .catch(console.error)
 
-    window.api.getDiskUsage().then((d) => {
-      setDiskUsage(d.audioBytes)
-      setUserData(d.userData)
-    }).catch(console.error)
+    window.api
+      .getDiskUsage()
+      .then((d) => {
+        setDiskUsage(d.audioBytes)
+        setUserData(d.userData)
+      })
+      .catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -123,15 +157,18 @@ export default function Settings(): React.JSX.Element {
     setDlError('')
     // First check filesystem (fast); if absent, check browser Cache API
     // (model files are stored there when useBrowserCache=true in the worker).
-    window.api.getModelStatus(whisperModel).then(async (s) => {
-      if (s.present) {
-        setModelPresent(true)
-        setModelSize(s.sizeBytes)
-      } else {
-        const cached = await checkBrowserCache(whisperModel)
-        setModelPresent(cached)
-      }
-    }).catch(console.error)
+    window.api
+      .getModelStatus(whisperModel)
+      .then(async (s) => {
+        if (s.present) {
+          setModelPresent(true)
+          setModelSize(s.sizeBytes)
+        } else {
+          const cached = await checkBrowserCache(whisperModel)
+          setModelPresent(cached)
+        }
+      })
+      .catch(console.error)
   }, [whisperModel])
 
   async function handleSaveLlm(): Promise<void> {
@@ -163,16 +200,16 @@ export default function Settings(): React.JSX.Element {
     if (proxyMode === 'manual') {
       if (httpProxy.trim() && httpPort.trim()) {
         proxy.httpProxy = httpProxy.trim()
-        proxy.httpPort  = parseInt(httpPort) || 3128
+        proxy.httpPort = parseInt(httpPort) || 3128
         proxy.useHttpForHttps = useHttpForHttps
       }
       if (!useHttpForHttps && httpsProxy.trim() && httpsPort.trim()) {
         proxy.httpsProxy = httpsProxy.trim()
-        proxy.httpsPort  = parseInt(httpsPort) || 3128
+        proxy.httpsPort = parseInt(httpsPort) || 3128
       }
       if (socksHost.trim() && socksPort.trim()) {
-        proxy.socksHost    = socksHost.trim()
-        proxy.socksPort    = parseInt(socksPort) || 1080
+        proxy.socksHost = socksHost.trim()
+        proxy.socksPort = parseInt(socksPort) || 1080
         proxy.socksVersion = socksVersion
         proxy.proxyDnsViaSocks = socksVersion === 5 ? proxyDnsViaSocks : false
       }
@@ -201,10 +238,9 @@ export default function Settings(): React.JSX.Element {
       const { modelCachePath } = await window.api.getPaths()
 
       if (dlWorkerRef.current) dlWorkerRef.current.terminate()
-      const worker = new Worker(
-        new URL('../workers/whisper.worker.ts', import.meta.url),
-        { type: 'module' }
-      )
+      const worker = new Worker(new URL('../workers/whisper.worker.ts', import.meta.url), {
+        type: 'module'
+      })
       dlWorkerRef.current = worker
 
       await new Promise<void>((resolve, reject) => {
@@ -219,7 +255,7 @@ export default function Settings(): React.JSX.Element {
           type: 'init',
           modelId: whisperModel,
           modelCachePath,
-          ...(hfEndpoint ? { hfEndpoint } : {}),
+          ...(hfEndpoint ? { hfEndpoint } : {})
         })
       })
 
@@ -300,10 +336,16 @@ export default function Settings(): React.JSX.Element {
               id="baseURL"
               placeholder="https://api.openai.com/v1"
               value={baseURL}
-              onChange={(e) => { setBaseURL(e.target.value); setTestState('idle') }}
+              onChange={(e) => {
+                setBaseURL(e.target.value)
+                setTestState('idle')
+              }}
             />
             <p className="text-[11px] text-muted-foreground">
-              Azure: <code>https://&lt;resource&gt;.openai.azure.com/openai/deployments/&lt;model&gt;</code>
+              Azure:{' '}
+              <code>
+                https://&lt;resource&gt;.openai.azure.com/openai/deployments/&lt;model&gt;
+              </code>
             </p>
           </div>
 
@@ -344,7 +386,11 @@ export default function Settings(): React.JSX.Element {
 
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={() => void handleSaveLlm()}>Save</Button>
-            <Button variant="outline" onClick={() => void handleTest()} disabled={testState === 'loading'}>
+            <Button
+              variant="outline"
+              onClick={() => void handleTest()}
+              disabled={testState === 'loading'}
+            >
               {testState === 'loading' && <Loader2 size={13} className="mr-1.5 animate-spin" />}
               Test Connection
             </Button>
@@ -379,7 +425,9 @@ export default function Settings(): React.JSX.Element {
               </SelectTrigger>
               <SelectContent>
                 {WHISPER_MODELS.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -440,7 +488,10 @@ export default function Settings(): React.JSX.Element {
                 <XCircle size={11} className="mt-0.5 shrink-0" />
                 <span>{dlError}</span>
               </p>
-              {(dlError.includes('blocked') || dlError.includes('mirror') || dlError.includes('not valid JSON') || dlError.includes('<!doctype')) && (
+              {(dlError.includes('blocked') ||
+                dlError.includes('mirror') ||
+                dlError.includes('not valid JSON') ||
+                dlError.includes('<!doctype')) && (
                 <p className="text-[11px] text-muted-foreground pl-4">
                   Tip: set a mirror URL in the{' '}
                   <button
@@ -448,7 +499,8 @@ export default function Settings(): React.JSX.Element {
                     onClick={() => setAdvOpen(true)}
                   >
                     Advanced
-                  </button>{' '}section (e.g. <code>https://hf-mirror.com</code>).
+                  </button>{' '}
+                  section (e.g. <code>https://hf-mirror.com</code>).
                 </p>
               )}
             </div>
@@ -536,11 +588,14 @@ export default function Settings(): React.JSX.Element {
                 id="hfEndpoint"
                 placeholder="https://hf-mirror.com"
                 value={hfEndpoint}
-                onChange={(e) => { setHfEndpoint(e.target.value); setPingState('idle') }}
+                onChange={(e) => {
+                  setHfEndpoint(e.target.value)
+                  setPingState('idle')
+                }}
               />
               <p className="text-[11px] text-muted-foreground">
-                Override the default <code>huggingface.co</code> host for model downloads.
-                Leave blank to use the official endpoint. Takes effect on the next download.
+                Override the default <code>huggingface.co</code> host for model downloads. Leave
+                blank to use the official endpoint. Takes effect on the next download.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -569,7 +624,10 @@ export default function Settings(): React.JSX.Element {
                 </span>
               )}
               {pingState === 'error' && (
-                <span className="flex items-center gap-1 text-[12px] text-destructive" title={pingError}>
+                <span
+                  className="flex items-center gap-1 text-[12px] text-destructive"
+                  title={pingError}
+                >
                   <XCircle size={13} />
                   {pingError.length > 60 ? pingError.slice(0, 60) + '…' : pingError}
                 </span>
@@ -587,16 +645,17 @@ export default function Settings(): React.JSX.Element {
           Proxy Configuration
         </h2>
         <div className="flex flex-col gap-3">
-
           {/* Mode radio buttons */}
           <div className="flex flex-col gap-2">
-            {([
-              { value: 'none',        label: 'No proxy' },
-              { value: 'auto_detect', label: 'Auto-detect proxy settings for this network' },
-              { value: 'system',      label: 'Use system proxy settings' },
-              { value: 'manual',      label: 'Manual proxy configuration' },
-              { value: 'pac',         label: 'Automatic proxy configuration URL' },
-            ] as { value: ProxyMode; label: string }[]).map(({ value, label }) => (
+            {(
+              [
+                { value: 'none', label: 'No proxy' },
+                { value: 'auto_detect', label: 'Auto-detect proxy settings for this network' },
+                { value: 'system', label: 'Use system proxy settings' },
+                { value: 'manual', label: 'Manual proxy configuration' },
+                { value: 'pac', label: 'Automatic proxy configuration URL' }
+              ] as { value: ProxyMode; label: string }[]
+            ).map(({ value, label }) => (
               <label key={value} className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="radio"
@@ -614,64 +673,136 @@ export default function Settings(): React.JSX.Element {
           {/* Manual sub-section */}
           {proxyMode === 'manual' && (
             <div className="mt-1 flex flex-col gap-3 border-l border-border/50 pl-4">
-
               {/* HTTP Proxy */}
               <div className="grid grid-cols-[1fr_80px] gap-2 items-end">
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="httpProxy" className="text-[11px]">HTTP Proxy</Label>
-                  <Input id="httpProxy" placeholder="proxy.example.com" value={httpProxy} onChange={(e) => setHttpProxy(e.target.value)} />
+                  <Label htmlFor="httpProxy" className="text-[11px]">
+                    HTTP Proxy
+                  </Label>
+                  <Input
+                    id="httpProxy"
+                    placeholder="proxy.example.com"
+                    value={httpProxy}
+                    onChange={(e) => setHttpProxy(e.target.value)}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="httpPort" className="text-[11px]">Port</Label>
-                  <Input id="httpPort" placeholder="3128" value={httpPort} onChange={(e) => setHttpPort(e.target.value)} />
+                  <Label htmlFor="httpPort" className="text-[11px]">
+                    Port
+                  </Label>
+                  <Input
+                    id="httpPort"
+                    placeholder="3128"
+                    value={httpPort}
+                    onChange={(e) => setHttpPort(e.target.value)}
+                  />
                 </div>
               </div>
 
               {/* Also use for HTTPS */}
               <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={useHttpForHttps} onChange={(e) => setUseHttpForHttps(e.target.checked)} className="accent-primary" />
+                <input
+                  type="checkbox"
+                  checked={useHttpForHttps}
+                  onChange={(e) => setUseHttpForHttps(e.target.checked)}
+                  className="accent-primary"
+                />
                 <span className="text-sm">Also use this proxy for HTTPS</span>
               </label>
 
               {/* HTTPS Proxy */}
-              <div className={`grid grid-cols-[1fr_80px] gap-2 items-end transition-opacity ${useHttpForHttps ? 'opacity-40 pointer-events-none' : ''}`}>
+              <div
+                className={`grid grid-cols-[1fr_80px] gap-2 items-end transition-opacity ${useHttpForHttps ? 'opacity-40 pointer-events-none' : ''}`}
+              >
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="httpsProxy" className="text-[11px]">HTTPS Proxy</Label>
-                  <Input id="httpsProxy" placeholder="proxy.example.com" value={httpsProxy} onChange={(e) => setHttpsProxy(e.target.value)} disabled={useHttpForHttps} />
+                  <Label htmlFor="httpsProxy" className="text-[11px]">
+                    HTTPS Proxy
+                  </Label>
+                  <Input
+                    id="httpsProxy"
+                    placeholder="proxy.example.com"
+                    value={httpsProxy}
+                    onChange={(e) => setHttpsProxy(e.target.value)}
+                    disabled={useHttpForHttps}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="httpsPort" className="text-[11px]">Port</Label>
-                  <Input id="httpsPort" placeholder="3128" value={httpsPort} onChange={(e) => setHttpsPort(e.target.value)} disabled={useHttpForHttps} />
+                  <Label htmlFor="httpsPort" className="text-[11px]">
+                    Port
+                  </Label>
+                  <Input
+                    id="httpsPort"
+                    placeholder="3128"
+                    value={httpsPort}
+                    onChange={(e) => setHttpsPort(e.target.value)}
+                    disabled={useHttpForHttps}
+                  />
                 </div>
               </div>
 
               {/* SOCKS Host */}
               <div className="grid grid-cols-[1fr_80px] gap-2 items-end">
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="socksHost" className="text-[11px]">SOCKS Host</Label>
-                  <Input id="socksHost" placeholder="proxy.example.com" value={socksHost} onChange={(e) => setSocksHost(e.target.value)} />
+                  <Label htmlFor="socksHost" className="text-[11px]">
+                    SOCKS Host
+                  </Label>
+                  <Input
+                    id="socksHost"
+                    placeholder="proxy.example.com"
+                    value={socksHost}
+                    onChange={(e) => setSocksHost(e.target.value)}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="socksPort" className="text-[11px]">Port</Label>
-                  <Input id="socksPort" placeholder="1080" value={socksPort} onChange={(e) => setSocksPort(e.target.value)} />
+                  <Label htmlFor="socksPort" className="text-[11px]">
+                    Port
+                  </Label>
+                  <Input
+                    id="socksPort"
+                    placeholder="1080"
+                    value={socksPort}
+                    onChange={(e) => setSocksPort(e.target.value)}
+                  />
                 </div>
               </div>
 
               {/* SOCKS version */}
               <div className="flex items-center gap-5">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="radio" name="socksVersion" value="4" checked={socksVersion === 4} onChange={() => setSocksVersion(4)} className="accent-primary" />
+                  <input
+                    type="radio"
+                    name="socksVersion"
+                    value="4"
+                    checked={socksVersion === 4}
+                    onChange={() => setSocksVersion(4)}
+                    className="accent-primary"
+                  />
                   <span className="text-sm">SOCKS v4</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="radio" name="socksVersion" value="5" checked={socksVersion === 5} onChange={() => setSocksVersion(5)} className="accent-primary" />
+                  <input
+                    type="radio"
+                    name="socksVersion"
+                    value="5"
+                    checked={socksVersion === 5}
+                    onChange={() => setSocksVersion(5)}
+                    className="accent-primary"
+                  />
                   <span className="text-sm">SOCKS v5</span>
                 </label>
               </div>
 
               {/* Proxy DNS via SOCKS v5 */}
-              <label className={`flex items-center gap-2 cursor-pointer select-none transition-opacity ${socksVersion === 4 ? 'opacity-40 pointer-events-none' : ''}`}>
-                <input type="checkbox" checked={proxyDnsViaSocks} onChange={(e) => setProxyDnsViaSocks(e.target.checked)} disabled={socksVersion === 4} className="accent-primary" />
+              <label
+                className={`flex items-center gap-2 cursor-pointer select-none transition-opacity ${socksVersion === 4 ? 'opacity-40 pointer-events-none' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={proxyDnsViaSocks}
+                  onChange={(e) => setProxyDnsViaSocks(e.target.checked)}
+                  disabled={socksVersion === 4}
+                  className="accent-primary"
+                />
                 <span className="text-sm">Proxy DNS when using SOCKS v5</span>
               </label>
             </div>
@@ -691,7 +822,9 @@ export default function Settings(): React.JSX.Element {
           {/* No proxy for (manual + pac only) */}
           {(proxyMode === 'manual' || proxyMode === 'pac') && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="noProxy" className="text-[11px]">No proxy for</Label>
+              <Label htmlFor="noProxy" className="text-[11px]">
+                No proxy for
+              </Label>
               <Input
                 id="noProxy"
                 placeholder="localhost,127.0.0.1"
@@ -699,13 +832,15 @@ export default function Settings(): React.JSX.Element {
                 onChange={(e) => setNoProxy(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground">
-                Comma-separated hosts or IPs that bypass the proxy.
-                Connections to localhost and 127.0.0.1 are never proxied.
+                Comma-separated hosts or IPs that bypass the proxy. Connections to localhost and
+                127.0.0.1 are never proxied.
               </p>
             </div>
           )}
 
-          <Button className="self-start mt-1" onClick={() => void handleSaveProxy()}>Save</Button>
+          <Button className="self-start mt-1" onClick={() => void handleSaveProxy()}>
+            Save
+          </Button>
         </div>
       </section>
 
@@ -717,7 +852,8 @@ export default function Settings(): React.JSX.Element {
           About
         </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Briefly — local meeting transcription &amp; summarisation.<br />
+          Briefly — local meeting transcription &amp; summarisation.
+          <br />
           Built with Electron, React, Whisper (ONNX/WebGPU), and an OpenAI-compatible LLM.
         </p>
       </section>
@@ -727,16 +863,20 @@ export default function Settings(): React.JSX.Element {
           <DialogHeader>
             <DialogTitle>Clear all recordings?</DialogTitle>
             <DialogDescription>
-              This will permanently delete all audio files, transcripts, summaries, and journal entries. This cannot be undone.
+              This will permanently delete all audio files, transcripts, summaries, and journal
+              entries. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setClearOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => void handleClearAll()}>Delete Everything</Button>
+            <Button variant="outline" onClick={() => setClearOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleClearAll()}>
+              Delete Everything
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-

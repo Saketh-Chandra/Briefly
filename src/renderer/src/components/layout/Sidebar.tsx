@@ -6,13 +6,15 @@ import { useRecording } from '../../contexts/RecordingContext'
 import { Button } from '../ui/button'
 
 const navItems = [
-  { to: '/',           label: 'Dashboard',  icon: LayoutDashboard },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/recordings', label: 'Recordings', icon: List },
-  { to: '/journal',    label: 'Journal',    icon: BookOpen },
+  { to: '/journal', label: 'Journal', icon: BookOpen }
 ]
 
 function elapsed(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')
   const s = (seconds % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 }
@@ -35,7 +37,10 @@ export default function Sidebar(): React.JSX.Element {
   return (
     <nav className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground">
       {/* Traffic light spacer */}
-      <div className="h-10 w-full shrink-0 select-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+      <div
+        className="h-10 w-full shrink-0 select-none"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      />
 
       {/* App name */}
       <div className="px-4 pb-3 font-display text-[15px] font-normal italic text-foreground/70 tracking-wide">
@@ -70,7 +75,10 @@ export default function Sidebar(): React.JSX.Element {
       <div className="border-t border-border px-3 py-3">
         {isActive ? (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-xs font-medium" style={{ color: 'var(--briefly-record)' }}>
+            <div
+              className="flex items-center gap-2 text-xs font-medium"
+              style={{ color: 'var(--briefly-record)' }}
+            >
               <Circle
                 size={7}
                 className="recording-dot"
@@ -95,14 +103,20 @@ export default function Sidebar(): React.JSX.Element {
             variant="default"
             size="sm"
             className="w-full gap-1.5"
-            style={state.status === 'idle' ? {
-              backgroundColor: 'var(--briefly-accent)',
-              color: 'oklch(0.1 0 0)',
-            } : {}}
+            style={
+              state.status === 'idle'
+                ? {
+                    backgroundColor: 'var(--briefly-accent)',
+                    color: 'oklch(0.1 0 0)'
+                  }
+                : {}
+            }
             onClick={() => void handleRecord()}
             disabled={state.status === 'saving'}
           >
-            {state.status === 'saving' ? 'Saving…' : (
+            {state.status === 'saving' ? (
+              'Saving…'
+            ) : (
               <>
                 <Circle size={9} style={{ fill: 'currentColor' }} />
                 Record

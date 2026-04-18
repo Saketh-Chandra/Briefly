@@ -1,50 +1,64 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
-  WindowInfo,
+  CaptureSource,
   Meeting,
   MeetingDetail,
   AppSettings,
-  CliEvent,
+  CaptureEvent,
   TranscriptChunk,
   Todo
 } from '../main/lib/types'
 
+// Must match CAPTURE_EVENT_CHANNEL in renderer/src/lib/capture-session.ts
+const CAPTURE_EVENT_CHANNEL = 'briefly-capture-events'
+
 const api = {
   // --- Capture ---
 
-  listWindows: (): Promise<WindowInfo[]> =>
-    ipcRenderer.invoke('capture:list-windows'),
+  getSources: (): Promise<CaptureSource[]> => ipcRenderer.invoke('capture:get-sources'),
 
-  startRecording: (
-    opts: { mixMic: boolean }
-  ): Promise<{ sessionId: string; meetingId: number; audioPath: string }> =>
+  checkPermissions: (): Promise<{ screen: string; mic: string }> =>
+    ipcRenderer.invoke('capture:check-permissions'),
+
+  requestMicPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('capture:request-mic-permission'),
+
+  startRecording: (opts: {
+    mixMic: boolean
+    sourceId: string | null
+  }): Promise<{ sessionId: string; meetingId: number; audioPath: string }> =>
     ipcRenderer.invoke('capture:start', opts),
 
-  stopRecording: (): Promise<void> =>
-    ipcRenderer.invoke('capture:stop'),
+  writeAudioChunk: (sessionId: string, chunk: ArrayBuffer): Promise<void> =>
+    ipcRenderer.invoke('capture:write-chunk', sessionId, chunk),
 
-  takeScreenshot: (): Promise<void> =>
-    ipcRenderer.invoke('capture:screenshot'),
+  finalizeRecording: (sessionId: string, durationS: number): Promise<void> =>
+    ipcRenderer.invoke('capture:finalize', sessionId, durationS),
 
-  // Subscribe to real-time events from the Swift CLI (level, stopped, screenshot_done, error).
+  takeScreenshot: (): Promise<string | null> => ipcRenderer.invoke('capture:screenshot-save'),
+
+  // Subscribe to real-time events from the renderer CaptureSession.
+  // Events travel via BroadcastChannel (no round-trip through main process).
   // Returns an unsubscribe function — call it in useEffect cleanup.
-  onCaptureEvent: (cb: (event: CliEvent) => void): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, msg: CliEvent) => cb(msg)
-    ipcRenderer.on('capture:event', handler)
-    return () => ipcRenderer.removeListener('capture:event', handler)
+  onCaptureEvent: (cb: (event: CaptureEvent) => void): (() => void) => {
+    const bus = new BroadcastChannel(CAPTURE_EVENT_CHANNEL)
+    const handler = (e: MessageEvent<CaptureEvent>) => cb(e.data)
+    bus.addEventListener('message', handler)
+    return () => {
+      bus.removeEventListener('message', handler)
+      bus.close()
+    }
   },
 
   // --- Storage ---
 
-  getMeetings: (): Promise<Meeting[]> =>
-    ipcRenderer.invoke('storage:get-meetings'),
+  getMeetings: (): Promise<Meeting[]> => ipcRenderer.invoke('storage:get-meetings'),
 
   getMeeting: (id: number): Promise<MeetingDetail | null> =>
     ipcRenderer.invoke('storage:get-meeting', id),
 
-  deleteMeeting: (id: number): Promise<void> =>
-    ipcRenderer.invoke('storage:delete-meeting', id),
+  deleteMeeting: (id: number): Promise<void> => ipcRenderer.invoke('storage:delete-meeting', id),
 
   // --- Settings ---
 
@@ -74,33 +88,39 @@ const api = {
     content: string
     chunks: TranscriptChunk[]
     model: string
-  }): Promise<void> =>
-    ipcRenderer.invoke('storage:save-transcript', params),
+  }): Promise<void> => ipcRenderer.invoke('storage:save-transcript', params),
 
   // Fetch the saved transcript for a meeting.
-  getTranscript: (meetingId: number): Promise<{
+  getTranscript: (
+    meetingId: number
+  ): Promise<{
     content: string
     chunks: TranscriptChunk[] | null
     model: string | null
-  } | null> =>
-    ipcRenderer.invoke('storage:get-transcript', meetingId),
+  } | null> => ipcRenderer.invoke('storage:get-transcript', meetingId),
 
   // --- LLM Processing ---
 
   // Process a transcribed meeting: runs summary, todos, and journal LLM calls.
   // Resolves with the generated results when all three calls are done.
-  processTranscript: (meetingId: number): Promise<{
+  processTranscript: (
+    meetingId: number
+  ): Promise<{
     title: string
     summary: string
     todos: Todo[]
     journal: string
-  }> =>
-    ipcRenderer.invoke('llm:process', meetingId),
+  }> => ipcRenderer.invoke('llm:process', meetingId),
 
   // Subscribe to incremental LLM progress events.
   // { meetingId, step: 1|2|3, total: 3, label: string }
-  onLlmProgress: (cb: (event: { meetingId: number; step: number; total: number; label: string }) => void): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, event: { meetingId: number; step: number; total: number; label: string }) => cb(event)
+  onLlmProgress: (
+    cb: (event: { meetingId: number; step: number; total: number; label: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      event: { meetingId: number; step: number; total: number; label: string }
+    ) => cb(event)
     ipcRenderer.on('llm:progress', handler)
     return () => ipcRenderer.removeListener('llm:progress', handler)
   },
@@ -113,8 +133,13 @@ const api = {
   },
 
   // Subscribe to transcription status updates pushed from main (status, error).
-  onTranscriptionStatus: (cb: (event: { meetingId: number; status: string; error?: string }) => void): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, event: { meetingId: number; status: string; error?: string }) => cb(event)
+  onTranscriptionStatus: (
+    cb: (event: { meetingId: number; status: string; error?: string }) => void
+  ): (() => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      event: { meetingId: number; status: string; error?: string }
+    ) => cb(event)
     ipcRenderer.on('transcription:status', handler)
     return () => ipcRenderer.removeListener('transcription:status', handler)
   },
@@ -131,14 +156,11 @@ const api = {
   getDiskUsage: (): Promise<{ audioBytes: number; userData: string }> =>
     ipcRenderer.invoke('storage:get-disk-usage'),
 
-  revealInFinder: (): Promise<void> =>
-    ipcRenderer.invoke('storage:reveal-in-finder'),
+  revealInFinder: (): Promise<void> => ipcRenderer.invoke('storage:reveal-in-finder'),
 
-  clearAllRecordings: (): Promise<void> =>
-    ipcRenderer.invoke('storage:clear-all'),
+  clearAllRecordings: (): Promise<void> => ipcRenderer.invoke('storage:clear-all'),
 
-  testLlmConnection: (): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke('llm:test-connection'),
+  testLlmConnection: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('llm:test-connection'),
 
   testMirror: (endpoint: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hf:test-mirror', endpoint),
@@ -183,7 +205,7 @@ const api = {
   // Trigger a main-process system notification from the renderer.
   showNotification: (title: string, body: string): void => {
     ipcRenderer.send('notify:show', title, body)
-  },
+  }
 }
 
 if (process.contextIsolated) {

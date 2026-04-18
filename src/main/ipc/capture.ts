@@ -1,18 +1,16 @@
-import { ipcMain, app } from 'electron'
+import { ipcMain, app, desktopCapturer, systemPreferences, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { mkdirSync } from 'fs'
+import { mkdirSync, appendFileSync, writeFileSync } from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import type { WebContents } from 'electron'
-import { CaptureSession, listWindows } from '../lib/capture-cli'
 import {
   insertMeeting,
   updateMeetingDuration,
   updateMeetingStatus,
   insertScreenshot
 } from '../lib/db'
-import type { CliEvent } from '../lib/types'
-import { notifyRecordingSaved, notifyError } from '../lib/notifications'
+import { notifyRecordingSaved } from '../lib/notifications'
 import { updateTrayState } from '../lib/tray'
+import type { CaptureSource } from '../lib/types'
 
 // Injected by index.ts after the window is created
 let _getWindow: () => import('electron').BrowserWindow | null = () => null
@@ -20,89 +18,129 @@ export function setTrayWindowGetter(fn: () => import('electron').BrowserWindow |
   _getWindow = fn
 }
 
-// One active session at a time (POC constraint)
-let activeSession: CaptureSession | null = null
+// Holds the sourceId chosen by the renderer just before calling getDisplayMedia.
+// Consumed (and cleared) by the setDisplayMediaRequestHandler in index.ts.
+let _pendingSourceId: string | null = null
+export function claimPendingSourceId(): string | null {
+  const id = _pendingSourceId
+  _pendingSourceId = null
+  return id
+}
+
+// Active session state (one session at a time)
 let activeMeetingId: number | null = null
 let activeSessionId: string | null = null
 let screenshotCounter = 0
 
-export function registerCaptureHandlers(getSender: () => WebContents | null): void {
-  ipcMain.handle('capture:list-windows', async () => {
-    return listWindows()
+export function registerCaptureHandlers(): void {
+  // ── Source listing ─────────────────────────────────────────────────────────
+  ipcMain.handle('capture:get-sources', async (): Promise<CaptureSource[]> => {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 160, height: 90 },
+      fetchWindowIcons: true
+    })
+
+    // Exclude Briefly's own windows from the picker
+    const ownTitles = new Set(BrowserWindow.getAllWindows().map((w) => w.getTitle()))
+
+    return sources
+      .filter((s) => s.id.startsWith('screen:') || !ownTitles.has(s.name))
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        display_id: s.display_id,
+        thumbnail: s.thumbnail.toDataURL(),
+        appIcon: s.appIcon?.toDataURL() ?? null
+      }))
   })
 
-  ipcMain.handle('capture:start', async (_event, opts: { mixMic: boolean }) => {
-    if (activeSession) {
-      throw new Error('A recording session is already active')
+  // ── Permissions ────────────────────────────────────────────────────────────
+  ipcMain.handle('capture:check-permissions', async () => {
+    if (process.platform === 'darwin') {
+      const screen = systemPreferences.getMediaAccessStatus('screen')
+      const mic = systemPreferences.getMediaAccessStatus('microphone')
+      return { screen, mic }
     }
+    // Windows — no runtime permission required for screen/system audio
+    return { screen: 'granted', mic: 'granted' }
+  })
 
-    const sessionId = uuidv4()
-    activeSessionId = sessionId
-    screenshotCounter = 0
+  ipcMain.handle('capture:request-mic-permission', async () => {
+    if (process.platform === 'darwin') {
+      return systemPreferences.askForMediaAccess('microphone')
+    }
+    return true
+  })
 
-    const sessionDir = join(app.getPath('userData'), 'recordings', sessionId)
-    const screenshotsDir = join(sessionDir, 'screenshots')
-    mkdirSync(screenshotsDir, { recursive: true })
-
-    const audioPath = join(sessionDir, 'audio.opus')
-    const now = new Date().toISOString()
-
-    const meetingId = insertMeeting({ sessionId, audioPath, date: now })
-    activeMeetingId = meetingId
-
-    const session = new CaptureSession(
-      (msg: CliEvent) => {
-        // Forward all CLI events to the renderer
-        const sender = getSender()
-        if (sender && !sender.isDestroyed()) {
-          sender.send('capture:event', msg)
-        }
-
-        if (msg.type === 'stopped' && activeMeetingId !== null) {
-          updateMeetingDuration(activeMeetingId, msg.duration_s)
-          updateMeetingStatus(activeMeetingId, 'recorded')
-          notifyRecordingSaved(activeMeetingId)
-          activeSession = null
-          activeMeetingId = null
-          activeSessionId = null
-          updateTrayState(false, _getWindow)
-        }
-
-        if (msg.type === 'error') {
-          console.error('[capture IPC] CLI error:', msg.message)
-          if (activeMeetingId !== null) {
-            updateMeetingStatus(activeMeetingId, 'error')
-          }
-          notifyError('Recording', msg.message)
-          updateTrayState(false, _getWindow)
-        }
-      },
-      (code) => {
-        console.log('[capture IPC] Session process exited with code', code)
-        activeSession = null
+  // ── Session lifecycle ──────────────────────────────────────────────────────
+  ipcMain.handle(
+    'capture:start',
+    async (_event, opts: { mixMic: boolean; sourceId: string | null }) => {
+      if (activeMeetingId !== null) {
+        throw new Error('A recording session is already active')
       }
-    )
 
-    await session.waitForReady()
-    session.startRecording(audioPath, opts.mixMic)
-    activeSession = session
-    updateTrayState(true, _getWindow)
+      const sessionId = uuidv4()
+      activeSessionId = sessionId
+      screenshotCounter = 0
 
-    return { sessionId, meetingId, audioPath }
+      const sessionDir = join(app.getPath('userData'), 'recordings', sessionId)
+      const screenshotsDir = join(sessionDir, 'screenshots')
+      mkdirSync(screenshotsDir, { recursive: true })
+
+      // Store sourceId so setDisplayMediaRequestHandler (in index.ts) can pick it
+      // when the renderer calls getDisplayMedia immediately after this IPC resolves
+      if (opts.sourceId) _pendingSourceId = opts.sourceId
+
+      const audioPath = join(sessionDir, 'audio.webm')
+      const now = new Date().toISOString()
+
+      const meetingId = insertMeeting({ sessionId, audioPath, date: now })
+      activeMeetingId = meetingId
+
+      updateTrayState(true, _getWindow)
+
+      return { sessionId, meetingId, audioPath }
+    }
+  )
+
+  // Receives 1-second WebM/Opus chunks from the renderer's MediaRecorder.
+  // Security: path is constructed server-side from the trusted sessionId — never
+  // accept file paths from the renderer directly.
+  ipcMain.handle(
+    'capture:write-chunk',
+    async (_event, sessionId: string, chunkBuffer: ArrayBuffer) => {
+      if (sessionId !== activeSessionId) return
+      const filePath = join(app.getPath('userData'), 'recordings', sessionId, 'audio.webm')
+      appendFileSync(filePath, Buffer.from(chunkBuffer))
+    }
+  )
+
+  // Called by renderer after MediaRecorder.onstop fires — finalises the DB row.
+  ipcMain.handle('capture:finalize', async (_event, sessionId: string, durationS: number) => {
+    if (sessionId !== activeSessionId || activeMeetingId === null) return
+    updateMeetingDuration(activeMeetingId, durationS)
+    updateMeetingStatus(activeMeetingId, 'recorded')
+    notifyRecordingSaved(activeMeetingId)
+    activeMeetingId = null
+    activeSessionId = null
+    updateTrayState(false, _getWindow)
   })
 
-  ipcMain.handle('capture:stop', async () => {
-    if (!activeSession) {
-      throw new Error('No active recording session')
-    }
-    // Sends stop_recording command; the 'stopped' CliEvent updates the DB asynchronously
-    activeSession.stopRecording()
-  })
+  // ── Screenshots ────────────────────────────────────────────────────────────
+  // Uses desktopCapturer.getSources with a high-res thumbnailSize to capture the
+  // current screen state. No extra permission needed — already granted for recording.
+  ipcMain.handle('capture:screenshot-save', async (): Promise<string | null> => {
+    if (activeMeetingId === null || activeSessionId === null) return null
 
-  ipcMain.handle('capture:screenshot', async () => {
-    if (!activeSession || activeMeetingId === null || activeSessionId === null) {
-      throw new Error('No active recording session for screenshot')
-    }
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 3840, height: 2160 }
+    })
+    const png = sources[0]?.thumbnail.toPNG()
+    if (!png) return null
+
     screenshotCounter++
     const paddedNum = String(screenshotCounter).padStart(3, '0')
     const screenshotPath = join(
@@ -112,8 +150,8 @@ export function registerCaptureHandlers(getSender: () => WebContents | null): vo
       'screenshots',
       `${paddedNum}.png`
     )
-    // Register in DB immediately; file is written async by CLI
+    writeFileSync(screenshotPath, png)
     insertScreenshot(activeMeetingId, screenshotPath)
-    activeSession.takeScreenshot(screenshotPath)
+    return screenshotPath
   })
 }

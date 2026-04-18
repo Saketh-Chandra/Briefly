@@ -35,7 +35,6 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "build:capture": "cd capture && swift build -c release && cp .build/release/BrieflyCapture ../resources/briefly-capture",
     "rebuild": "electron-rebuild -f -w better-sqlite3,keytar"
   },
   "dependencies": {

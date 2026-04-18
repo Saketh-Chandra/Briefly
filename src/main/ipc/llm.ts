@@ -37,7 +37,12 @@ function chunkText(text: string): string[] {
 async function runSummaryCall(
   config: LLMConfig,
   transcript: string
-): Promise<{ title: string; summary: string; key_decisions: string[]; participants_mentioned: string[] }> {
+): Promise<{
+  title: string
+  summary: string
+  key_decisions: string[]
+  participants_mentioned: string[]
+}> {
   const messages: ChatMessage[] = [
     {
       role: 'system',
@@ -68,10 +73,7 @@ async function runSummaryCall(
   return JSON.parse(raw)
 }
 
-async function runTodosCall(
-  config: LLMConfig,
-  transcript: string
-): Promise<Todo[]> {
+async function runTodosCall(config: LLMConfig, transcript: string): Promise<Todo[]> {
   const messages: ChatMessage[] = [
     {
       role: 'system',
@@ -113,10 +115,7 @@ async function runTodosCall(
   return result.todos.map((t) => ({ ...t, done: false }))
 }
 
-async function runJournalCall(
-  config: LLMConfig,
-  content: string
-): Promise<string> {
+async function runJournalCall(config: LLMConfig, content: string): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: 'system',
@@ -135,7 +134,11 @@ async function runJournalCall(
 async function processLongTranscript(
   config: LLMConfig,
   transcript: string
-): Promise<{ summaryResult: Awaited<ReturnType<typeof runSummaryCall>>; todos: Todo[]; journal: string }> {
+): Promise<{
+  summaryResult: Awaited<ReturnType<typeof runSummaryCall>>
+  todos: Todo[]
+  journal: string
+}> {
   const chunks = chunkText(transcript)
 
   // Map: summarize + extract todos per chunk in parallel
@@ -166,7 +169,6 @@ async function processLongTranscript(
 // ---------------------------------------------------------------------------
 
 export function registerLlmHandlers(getSender: () => WebContents | null): void {
-
   ipcMain.handle('llm:process', async (_event, meetingId: number) => {
     const sender = getSender()
 
@@ -259,9 +261,12 @@ export function registerLlmHandlers(getSender: () => WebContents | null): void {
       }
     } catch (err) {
       updateMeetingStatus(meetingId, 'error')
-      const message = err instanceof LLMClientError
-        ? `LLM error (${err.status}): ${err.message}`
-        : err instanceof Error ? err.message : String(err)
+      const message =
+        err instanceof LLMClientError
+          ? `LLM error (${err.status}): ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : String(err)
       notifyError('Summarisation', message)
       throw new Error(message)
     }

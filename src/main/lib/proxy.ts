@@ -39,9 +39,7 @@ export async function applyProxy(proxy?: ProxySettings): Promise<void> {
       break
 
     case 'pac':
-      config = p.pacUrl
-        ? { mode: 'pac_script', pacScript: p.pacUrl }
-        : { mode: 'system' }
+      config = p.pacUrl ? { mode: 'pac_script', pacScript: p.pacUrl } : { mode: 'system' }
       break
 
     case 'manual': {

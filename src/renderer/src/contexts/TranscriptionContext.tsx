@@ -5,7 +5,7 @@ import {
   startPipelineAtom,
   resetTranscriptionAtom,
   type TranscriptionState,
-  type TranscriptionStage,
+  type TranscriptionStage
 } from '../atoms/transcription'
 
 export type { TranscriptionStage }
@@ -20,7 +20,11 @@ export interface TranscriptionContextValue {
 // No component-level side-effects needed — Worker lifecycle is fully managed
 // inside the write atoms in atoms/transcription.ts.
 
-export function TranscriptionProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function TranscriptionProvider({
+  children
+}: {
+  children: React.ReactNode
+}): React.JSX.Element {
   return <>{children}</>
 }
 
@@ -30,8 +34,8 @@ export function TranscriptionProvider({ children }: { children: React.ReactNode 
 
 export function useTranscription(): TranscriptionContextValue {
   return {
-    state:         useAtomValue(transcriptionAtom),
+    state: useAtomValue(transcriptionAtom),
     startPipeline: useSetAtom(startPipelineAtom),
-    reset:         useSetAtom(resetTranscriptionAtom),
+    reset: useSetAtom(resetTranscriptionAtom)
   }
 }

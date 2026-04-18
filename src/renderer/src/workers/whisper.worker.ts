@@ -6,15 +6,15 @@ import { pipeline, env, type AutomaticSpeechRecognitionPipeline } from '@hugging
 type WorkerInMessage =
   | {
       type: 'init'
-      modelId: string          // model to preload
-      modelCachePath: string   // absolute path to userData/models/
-      hfEndpoint?: string      // optional HuggingFace mirror URL
+      modelId: string // model to preload
+      modelCachePath: string // absolute path to userData/models/
+      hfEndpoint?: string // optional HuggingFace mirror URL
     }
   | {
       type: 'transcribe'
-      pcmData: Float32Array   // decoded 16kHz mono PCM — AudioContext is renderer-only
-      modelId: string          // e.g. 'onnx-community/whisper-large-v3-turbo'
-      language: string | null  // null = auto-detect
+      pcmData: Float32Array // decoded 16kHz mono PCM — AudioContext is renderer-only
+      modelId: string // e.g. 'onnx-community/whisper-large-v3-turbo'
+      language: string | null // null = auto-detect
     }
   | { type: 'cancel' }
 
@@ -36,7 +36,7 @@ export type WorkerOutMessage =
 let transcriber: AutomaticSpeechRecognitionPipeline | null = null
 let currentModelId: string | null = null
 let cancelled = false
-let configuredHost: string | null = null   // set by init; used in error messages
+let configuredHost: string | null = null // set by init; used in error messages
 
 function emit(msg: WorkerOutMessage): void {
   self.postMessage(msg)
@@ -47,7 +47,9 @@ function emit(msg: WorkerOutMessage): void {
 // ---------------------------------------------------------------------------
 async function getDevice(): Promise<'webgpu' | 'wasm'> {
   try {
-    const adapter = await (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu?.requestAdapter()
+    const adapter = await (
+      navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }
+    ).gpu?.requestAdapter()
     return adapter ? 'webgpu' : 'wasm'
   } catch {
     return 'wasm'
@@ -58,7 +60,7 @@ async function getDevice(): Promise<'webgpu' | 'wasm'> {
 // Load / reuse the transcription pipeline
 // ---------------------------------------------------------------------------
 async function loadModel(modelId: string): Promise<void> {
-  if (transcriber && currentModelId === modelId) return  // already loaded
+  if (transcriber && currentModelId === modelId) return // already loaded
 
   transcriber = null
   currentModelId = null
@@ -67,30 +69,35 @@ async function loadModel(modelId: string): Promise<void> {
   console.log(`[whisper-worker] device: ${device}`)
 
   try {
-    transcriber = await pipeline(
-      'automatic-speech-recognition',
-      modelId,
-      {
-        device,
-        dtype: device === 'webgpu'
+    transcriber = await pipeline('automatic-speech-recognition', modelId, {
+      device,
+      dtype:
+        device === 'webgpu'
           ? { encoder_model: 'fp16', decoder_model_merged: 'q4' }
           : { encoder_model: 'q8', decoder_model_merged: 'q8' },
-        progress_callback: (progress: { status: string; file?: string; loaded?: number; total?: number }) => {
-          if (progress.status === 'initiate') {
-            console.log('[whisper-worker] fetching:', progress.file)
-          }
-          if ((progress.status === 'downloading' || progress.status === 'loading') && progress.total) {
-            const pct = Math.round(((progress.loaded ?? 0) / progress.total) * 100)
-            emit({
-              type: 'model_loading',
-              progress: pct,
-              total: progress.total,
-              file: progress.file ?? ''
-            })
-          }
+      progress_callback: (progress: {
+        status: string
+        file?: string
+        loaded?: number
+        total?: number
+      }) => {
+        if (progress.status === 'initiate') {
+          console.log('[whisper-worker] fetching:', progress.file)
+        }
+        if (
+          (progress.status === 'downloading' || progress.status === 'loading') &&
+          progress.total
+        ) {
+          const pct = Math.round(((progress.loaded ?? 0) / progress.total) * 100)
+          emit({
+            type: 'model_loading',
+            progress: pct,
+            total: progress.total,
+            file: progress.file ?? ''
+          })
         }
       }
-    )
+    })
   } catch (err) {
     // Log the raw error in full before any transformation
     console.error('[whisper-worker] loadModel raw error:', err)
@@ -131,7 +138,7 @@ async function runTranscription(
 
   const chunks: { start: number; end: number; text: string }[] = []
 
-  const result = await transcriber(pcm, {
+  const result = (await transcriber(pcm, {
     language: language ?? undefined,
     task: 'transcribe',
     chunk_length_s: 30,
@@ -143,7 +150,7 @@ async function runTranscription(
       // but kept for future streaming support when Transformers.js exposes it.
       void beams
     }
-  }) as {
+  })) as {
     text: string
     chunks?: { timestamp: [number | null, number | null]; text: string }[]
   }
@@ -202,7 +209,10 @@ self.addEventListener('message', async (event: MessageEvent<WorkerInMessage>) =>
         {
           const underlying = self.fetch.bind(self)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(env as any).fetch = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+          ;(env as any).fetch = async (
+            input: string | URL,
+            init?: RequestInit
+          ): Promise<Response> => {
             const urlStr = typeof input === 'string' ? input : (input as URL).href
             const isRemote = urlStr.startsWith('http')
             if (isRemote) console.log('[whisper-worker] fetch →', urlStr)
@@ -213,7 +223,10 @@ self.addEventListener('message', async (event: MessageEvent<WorkerInMessage>) =>
               console.log('[whisper-worker] fetch ←', response.status, ct)
               if (ct.includes('text/html')) {
                 const preview = await response.clone().text()
-                console.error('[whisper-worker] ← HTML body (first 500 chars):\n', preview.slice(0, 500))
+                console.error(
+                  '[whisper-worker] ← HTML body (first 500 chars):\n',
+                  preview.slice(0, 500)
+                )
               }
             }
             return response
@@ -228,9 +241,12 @@ self.addEventListener('message', async (event: MessageEvent<WorkerInMessage>) =>
           allowRemoteModels: env.allowRemoteModels,
           allowLocalModels: env.allowLocalModels,
           useFSCache: env.useFSCache,
-          useBrowserCache: env.useBrowserCache,
+          useBrowserCache: env.useBrowserCache
         })
-        console.log('[whisper-worker] first file URL will be:', `${env.remoteHost}${msg.modelId}/resolve/main/config.json`)
+        console.log(
+          '[whisper-worker] first file URL will be:',
+          `${env.remoteHost}${msg.modelId}/resolve/main/config.json`
+        )
         // loadModel emits model_loading progress + model_ready when done
         await loadModel(msg.modelId)
         break

@@ -12,7 +12,9 @@ export default function Dashboard(): React.JSX.Element {
   const navigate = useNavigate()
 
   // Initial load
-  useEffect(() => { void loadMeetings() }, [loadMeetings])
+  useEffect(() => {
+    void loadMeetings()
+  }, [loadMeetings])
 
   // Reload when a recording finishes saving
   useEffect(() => {
@@ -40,7 +42,10 @@ export default function Dashboard(): React.JSX.Element {
         </h1>
         <RecordButton onStarted={(id) => navigate(`/recordings/${id}`)} />
         <p className="text-[11px] text-muted-foreground/60 tracking-wide">
-          or press <kbd className="rounded border border-border/60 px-1 py-0.5 font-mono text-[10px]">⌘⇧R</kbd>
+          or press{' '}
+          <kbd className="rounded border border-border/60 px-1 py-0.5 font-mono text-[10px]">
+            ⌘⇧R
+          </kbd>
         </p>
       </section>
 
@@ -80,4 +85,3 @@ export default function Dashboard(): React.JSX.Element {
     </div>
   )
 }
-

@@ -7,8 +7,9 @@ import {
   stopRecordingAtom,
   toggleRecordingAtom,
   initialRecordingState,
+  disposeActiveSession,
   type RecordingState,
-  type RecordingStatus,
+  type RecordingStatus
 } from '../atoms/recording'
 
 export type { RecordingStatus }
@@ -30,15 +31,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }): 
   const status = useAtomValue(recordingStatusAtom)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Swift CLI events → atom updates
+  // CaptureSession events via BroadcastChannel → atom updates
   useEffect(() => {
     const unsub = window.api.onCaptureEvent((event) => {
       if (event.type === 'level') {
         setRecording((prev): RecordingState => ({ ...prev, audioLevel: event.rms }))
       }
       if (event.type === 'stopped') {
-        // DB write in main process is synchronous and completes before this
-        // event is forwarded to the renderer — safe to go straight to idle.
+        disposeActiveSession()
         setRecording(initialRecordingState)
       }
     })
@@ -68,10 +68,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }): 
 
 export function useRecording(): RecordingContextValue {
   return {
-    state:           useAtomValue(recordingAtom),
-    startRecording:  useSetAtom(startRecordingAtom),
-    stopRecording:   useSetAtom(stopRecordingAtom),
-    toggleRecording: useSetAtom(toggleRecordingAtom),
+    state: useAtomValue(recordingAtom),
+    startRecording: useSetAtom(startRecordingAtom),
+    stopRecording: useSetAtom(stopRecordingAtom),
+    toggleRecording: useSetAtom(toggleRecordingAtom)
   }
 }
-

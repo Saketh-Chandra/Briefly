@@ -24,7 +24,10 @@ export default function SearchBar({
 
   return (
     <div className="relative">
-      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <Search
+        size={14}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+      />
       <Input
         className="pl-8 pr-8 bg-card/60 border-border/60 focus-visible:border-ring/60"
         placeholder={placeholder}

@@ -166,15 +166,14 @@ export function updateTodo(meetingId: number, index: number, done: boolean): voi
   const todos = JSON.parse(row.todos) as import('./types').Todo[]
   if (index < 0 || index >= todos.length) return
   todos[index].done = done
-  db.update(summaries).set({ todos: JSON.stringify(todos) }).where(eq(summaries.meeting_id, meetingId)).run()
+  db.update(summaries)
+    .set({ todos: JSON.stringify(todos) })
+    .where(eq(summaries.meeting_id, meetingId))
+    .run()
 }
 
 export function updateJournal(meetingId: number, journal: string): void {
-  getDb()
-    .update(summaries)
-    .set({ journal })
-    .where(eq(summaries.meeting_id, meetingId))
-    .run()
+  getDb().update(summaries).set({ journal }).where(eq(summaries.meeting_id, meetingId)).run()
 }
 
 export function resetMeetingForReprocessing(meetingId: number): void {

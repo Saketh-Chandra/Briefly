@@ -7,7 +7,7 @@ import {
   loadMeetingsAtom,
   searchTermAtom,
   statusFilterAtom,
-  filteredMeetingsAtom,
+  filteredMeetingsAtom
 } from '../atoms/pages'
 
 export default function Recordings(): React.JSX.Element {
@@ -16,7 +16,9 @@ export default function Recordings(): React.JSX.Element {
   const setSearchTerm = useSetAtom(searchTermAtom)
   const [statusFilter, setStatusFilter] = useAtom(statusFilterAtom)
 
-  useEffect(() => { void loadMeetings() }, [loadMeetings])
+  useEffect(() => {
+    void loadMeetings()
+  }, [loadMeetings])
 
   // Reload when a recording saves
   useEffect(() => {
@@ -56,4 +58,3 @@ export default function Recordings(): React.JSX.Element {
     </div>
   )
 }
-

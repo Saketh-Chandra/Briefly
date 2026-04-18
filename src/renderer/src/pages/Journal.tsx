@@ -25,7 +25,9 @@ export default function Journal(): React.JSX.Element {
   }, [routeDate, setDate])
 
   // Reload whenever date changes
-  useEffect(() => { void loadJournalMeetings(date) }, [date, loadJournalMeetings])
+  useEffect(() => {
+    void loadJournalMeetings(date)
+  }, [date, loadJournalMeetings])
 
   function handleDateChange(newDate: string): void {
     setDate(newDate)
@@ -55,4 +57,3 @@ export default function Journal(): React.JSX.Element {
     </div>
   )
 }
-

@@ -28,7 +28,6 @@ function dirSizeBytes(dirPath: string): number {
 }
 
 export function registerTranscriptionHandlers(getSender: () => WebContents | null): void {
-
   ipcMain.handle('transcription:get-paths', () => {
     const { userData, modelCachePath } = getPathsHelper()
     mkdirSync(modelCachePath, { recursive: true })
@@ -77,4 +76,3 @@ export function registerTranscriptionHandlers(getSender: () => WebContents | nul
     return { audioPath: meeting.audio_path }
   })
 }
-

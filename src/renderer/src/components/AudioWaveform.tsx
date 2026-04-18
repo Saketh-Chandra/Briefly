@@ -1,7 +1,7 @@
 import React from 'react'
 
 interface AudioWaveformProps {
-  level: number    // 0–1
+  level: number // 0–1
   active: boolean
   barCount?: number
   className?: string
@@ -27,7 +27,7 @@ export default function AudioWaveform({
             style={{
               height: `${Math.round(h * 20)}px`,
               minHeight: '3px',
-              backgroundColor: 'var(--briefly-record)',
+              backgroundColor: 'var(--briefly-record)'
             }}
           />
         )

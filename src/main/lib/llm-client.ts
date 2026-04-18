@@ -1,9 +1,9 @@
 export interface LLMConfig {
-  baseURL: string       // OpenAI: 'https://api.openai.com/v1'
-                        // Azure:  'https://<resource>.openai.azure.com/openai/deployments/<model>'
+  baseURL: string // OpenAI: 'https://api.openai.com/v1'
+  // Azure:  'https://<resource>.openai.azure.com/openai/deployments/<model>'
   apiKey: string
-  model: string         // 'gpt-4o' — for Azure this is already in the URL, still pass it
-  apiVersion?: string   // Azure only: '2025-01-01-preview'
+  model: string // 'gpt-4o' — for Azure this is already in the URL, still pass it
+  apiVersion?: string // Azure only: '2025-01-01-preview'
 }
 
 export interface ChatMessage {
@@ -47,15 +47,13 @@ export async function chatCompletion(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(isAzure
-      ? { 'api-key': config.apiKey }
-      : { Authorization: `Bearer ${config.apiKey}` })
+    ...(isAzure ? { 'api-key': config.apiKey } : { Authorization: `Bearer ${config.apiKey}` })
   }
 
   const body: Record<string, unknown> = {
     model: config.model,
     messages,
-    temperature: 0.3,
+    temperature: 0.3
   }
   if (responseFormat) {
     body.response_format = responseFormat
@@ -76,7 +74,7 @@ export async function chatCompletion(
     )
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     choices: { message: { content: string } }[]
   }
 

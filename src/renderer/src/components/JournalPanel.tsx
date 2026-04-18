@@ -6,12 +6,17 @@ interface JournalPanelProps {
   journal: string | null
 }
 
-export default function JournalPanel({ meetingId, journal: initial }: JournalPanelProps): React.JSX.Element {
+export default function JournalPanel({
+  meetingId,
+  journal: initial
+}: JournalPanelProps): React.JSX.Element {
   const [value, setValue] = useState(initial ?? '')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Sync when prop changes (e.g. LLM just finished)
-  useEffect(() => { setValue(initial ?? '') }, [initial])
+  useEffect(() => {
+    setValue(initial ?? '')
+  }, [initial])
 
   function handleChange(text: string): void {
     setValue(text)

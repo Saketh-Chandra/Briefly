@@ -9,12 +9,20 @@ interface TranscriptViewerProps {
 }
 
 function formatTimestamp(s: number): string {
-  const m = Math.floor(s / 60).toString().padStart(2, '0')
-  const sec = Math.floor(s % 60).toString().padStart(2, '0')
+  const m = Math.floor(s / 60)
+    .toString()
+    .padStart(2, '0')
+  const sec = Math.floor(s % 60)
+    .toString()
+    .padStart(2, '0')
   return `${m}:${sec}`
 }
 
-export default function TranscriptViewer({ chunks, fullText, isLive }: TranscriptViewerProps): React.JSX.Element {
+export default function TranscriptViewer({
+  chunks,
+  fullText,
+  isLive
+}: TranscriptViewerProps): React.JSX.Element {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -47,9 +55,7 @@ export default function TranscriptViewer({ chunks, fullText, isLive }: Transcrip
             <span className="w-10 shrink-0 pt-0.5 text-right font-mono text-[10px] text-muted-foreground/60">
               {formatTimestamp(chunk.start)}
             </span>
-            <p className="flex-1 text-sm leading-relaxed text-foreground">
-              {chunk.text}
-            </p>
+            <p className="flex-1 text-sm leading-relaxed text-foreground">{chunk.text}</p>
           </div>
         ))}
         {isLive && (
