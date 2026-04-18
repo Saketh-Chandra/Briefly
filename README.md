@@ -1,71 +1,70 @@
 # Briefly
 
-Briefly is a macOS desktop app for recording meeting audio, transcribing it locally with Whisper, and generating summaries, to-dos, and journal entries with a configurable LLM endpoint.
-
-The app combines an Electron shell, a React and TypeScript renderer, a native Swift capture binary for system audio, local SQLite storage via Drizzle, and a Web Worker powered by `@huggingface/transformers` for transcription.
+Briefly is a macOS desktop app that records meeting audio, transcribes it locally with Whisper, and generates summaries, to-dos, and journal entries using a configurable LLM endpoint — entirely on your machine, with no audio sent to any cloud service.
 
 ## Current Status
 
-Briefly is under active development, but the main end-to-end pieces already exist:
+Under active development. The end-to-end pipeline is working:
 
-- Native macOS capture via a Swift CLI in `capture/`
-- Renderer UI for dashboard, recordings, transcript, journal, and settings
-- Local Whisper model download and transcription pipeline
-- OpenAI-compatible LLM post-processing for summaries, to-dos, and journal output
-- SQLite-backed meeting storage and Electron notifications
+- System audio + microphone capture via Electron `desktopCapturer` and the Web Audio API
+- Renderer UI: Dashboard, Recordings, Transcript, Journal, and Settings pages
+- Local Whisper model download and transcription in a Web Worker (runs in the background — safe to navigate away)
+- OpenAI-compatible LLM processing for titles, summaries, to-dos, and journal entries
+- SQLite-backed meeting storage, Electron notifications, macOS menu bar tray
+- Keyboard shortcut (`⌘⇧R`) and deep link (`briefly://`) support
+- Re-run pipeline from any finished or errored state
 
-For the most reliable implementation snapshot, start with `docs/current-state.md`.
+For the latest implementation snapshot see [docs/current-state.md](docs/current-state.md).
+
+---
 
 ## What Briefly Does
 
-1. Records meeting audio using a native macOS capture binary.
-2. Stores recordings and metadata locally.
-3. Downloads and runs a Whisper model locally in a Web Worker.
-4. Generates summaries, to-dos, and journal entries using a user-configured LLM API.
-5. Presents recordings, transcripts, and journal views in the desktop UI.
+1. Records system audio (and optionally microphone) for the current screen or a chosen window.
+2. Saves audio locally as WebM/Opus chunks streamed to disk in real time.
+3. Downloads and caches a Whisper ONNX model locally on first use.
+4. Transcribes the recording locally in a Web Worker — no audio leaves the machine.
+5. Calls a user-configured OpenAI-compatible LLM endpoint to produce a title, summary, to-do list, and journal entry.
+6. Presents all meetings, transcripts, and the daily journal in the desktop UI.
+7. Supports re-running the full pipeline (transcription + LLM) on any past recording.
+
+---
 
 ## Tech Stack
 
 | Area | Technology |
 | --- | --- |
-| Desktop shell | Electron + electron-vite |
+| Desktop shell | Electron 35 + electron-vite |
 | Renderer | React 19 + TypeScript |
-| State | Jotai |
+| State management | Jotai |
 | Styling | Tailwind CSS v4 + shadcn/ui |
-| Native capture | Swift 5.9 + ScreenCaptureKit + AVFoundation |
+| Audio capture | `desktopCapturer` + Web Audio API + `MediaRecorder` (WebM/Opus) |
 | Local transcription | `@huggingface/transformers` in a Web Worker |
 | Storage | SQLite + `better-sqlite3` + Drizzle ORM |
 | Secrets | macOS Keychain via `keytar` |
+| Proxy support | Electron `session` proxy via configurable settings |
+
+---
 
 ## Platform Notes
 
-- Briefly currently targets macOS.
-- The native capture pipeline depends on Apple frameworks such as ScreenCaptureKit.
-- The Swift package in `capture/` targets macOS 13 or later.
-- Apple Silicon is strongly preferred for good Whisper WebGPU performance.
-- Capture and recording logic for other operating systems has not been implemented yet.
-- Windows and Linux support is planned, but is still in the pipeline.
+- **macOS 14.2 (Sonoma) or later** is required for loopback audio capture (CoreAudio Tap). The app will launch on earlier versions but system audio capture will not work.
+- Apple Silicon is strongly preferred for good Whisper ONNX performance.
+- Windows support is partially implemented — the UI and pipeline work, but loopback audio uses WASAPI and has not been extensively tested.
+- Linux is not currently supported.
+
+---
 
 ## Prerequisites
 
-- macOS 13+
-- A recent Node.js installation
-- Bun for installing and updating dependencies
-- Xcode Command Line Tools or Xcode, if you need to rebuild the native capture binary
-- `ffmpeg` available on the machine if you want to run the native capture pipeline locally
-- Screen Recording and Microphone permissions when running the app
+- macOS 14.2+
+- Node.js 20+
+- [Bun](https://bun.sh) (used for installing and managing dependencies)
+- Screen Recording and Microphone permissions granted to the app
 
-Optional for capture development:
+> **No Xcode or native toolchain is needed.** The capture pipeline is implemented entirely in Electron/Web APIs — there is no Swift binary.
 
-- `brew install ffmpeg`
-
-The Swift capture binary buffers PCM during recording and encodes the final `.opus` file by invoking `ffmpeg` with `libopus`.
-
-Dependency workflow in this repo:
-
-- Use `bun install` to install dependencies.
-- Use `bun add` or `bun add -d` when adding packages.
-- Use `npm run ...` to run app and build scripts.
+---
 
 ## Getting Started
 
@@ -81,24 +80,16 @@ bun install
 npm run dev
 ```
 
-### Type-check the project
+### Type-check
 
 ```bash
 npm run typecheck
 ```
 
-### Lint the project
+### Lint
 
 ```bash
 npm run lint
-```
-
-### Build the native capture binary
-
-Run this if you change code under `capture/` or need to refresh the bundled binary in `resources/briefly-capture`.
-
-```bash
-npm run build:capture
 ```
 
 ### Build the app
@@ -107,75 +98,191 @@ npm run build:capture
 npm run build
 ```
 
-For platform packaging:
+### Package for distribution
 
 ```bash
-npm run build:mac
-npm run build:win
-npm run build:linux
+npm run build:mac     # macOS .dmg / .app
+npm run build:win     # Windows NSIS installer
+npm run build:linux   # Linux AppImage
 ```
 
-The packaging scripts exist for multiple platforms, but the implemented capture pipeline is currently macOS-only.
+### Rebuild native modules (after Electron version bump)
+
+```bash
+npm run rebuild
+```
+
+---
 
 ## First-Run Flow
 
-After launching the app:
+1. Launch the app.
+2. Open **Settings**.
+3. Under **LLM**, enter your OpenAI-compatible base URL, model name, and API key.
+4. Under **Whisper**, choose a model (Whisper Tiny is fastest, ~38 MB) and click **Download Model**.
+5. Wait for the download to complete.
+6. Return to the Dashboard and click **Record** (or press `⌘⇧R`).
+7. When you stop recording, the transcription + LLM pipeline starts automatically.
+8. You can navigate to other pages while processing — the pipeline runs in the background.
 
-1. Open Settings.
-2. Configure the LLM endpoint, model, and API key.
-3. Select a Whisper model.
-4. Download the model from Hugging Face or a configured mirror.
-5. Start a recording and let the transcription and summary pipeline run.
+---
 
-## Useful Scripts
+## Keyboard Shortcuts & Deep Links
 
-| Script | Purpose |
+### Keyboard Shortcut
+
+| Shortcut | Action |
 | --- | --- |
-| `npm run dev` | Start the Electron development environment |
-| `npm run typecheck` | Run both Node and web TypeScript checks |
-| `npm run lint` | Run ESLint |
-| `npm run build` | Type-check and build the app |
-| `npm run build:capture` | Build the Swift capture binary and copy it into `resources/` |
-| `npm run rebuild` | Rebuild native modules against the Electron ABI |
-| `npm run build:mac` | Build the macOS package |
+| `⌘⇧R` | Toggle recording start / stop |
+
+### Deep Links
+
+`briefly://` is registered as a URL scheme on first launch. You can trigger actions from Raycast, Alfred, a terminal, or any URL launcher:
+
+| URL | Action |
+| --- | --- |
+| `briefly://record/start` | Start recording |
+| `briefly://record/stop` | Stop recording |
+| `briefly://record/screenshot` | Take a screenshot |
+| `briefly://app/open` | Show and focus the window |
+
+---
+
+## IPC Channel Reference
+
+All channels are invoked via `window.api.*` from the renderer (typed in `src/preload/index.d.ts`).
+
+### Capture
+
+| `window.api` method | IPC channel | Description |
+| --- | --- | --- |
+| `getSources()` | `capture:get-sources` | List available screen/window sources |
+| `checkPermissions()` | `capture:check-permissions` | Returns `{ screen, mic }` permission states |
+| `requestMicPermission()` | `capture:request-mic-permission` | Prompt for microphone access |
+| `startRecording(opts)` | `capture:start` | Create session + DB row, store pending source ID |
+| `writeAudioChunk(id, buf)` | `capture:write-chunk` | Append WebM chunk to disk |
+| `finalizeRecording(id, dur)` | `capture:finalize` | Close session, update duration + status |
+| `takeScreenshot()` | `capture:screenshot-save` | Save high-res screenshot for the active session |
+| `onCaptureEvent(cb)` | BroadcastChannel | Real-time recording events (no IPC round-trip) |
+
+### Storage
+
+| `window.api` method | IPC channel | Description |
+| --- | --- | --- |
+| `getMeetings()` | `storage:get-meetings` | All meetings |
+| `getMeeting(id)` | `storage:get-meeting` | Single meeting with transcript + summary |
+| `getMeetingsByDate(date)` | `storage:get-meetings-by-date` | Meetings for a given ISO date |
+| `deleteMeeting(id)` | `storage:delete-meeting` | Delete meeting + audio file |
+| `saveTranscript(params)` | `storage:save-transcript` | Persist Whisper output, set status `transcribed` |
+| `getTranscript(id)` | `storage:get-transcript` | Fetch transcript for a meeting |
+| `resetForReprocessing(id)` | `storage:reset-for-reprocessing` | Delete transcript + summary, reset to `recorded` |
+| `updateTodo(id, idx, done)` | `storage:update-todo` | Toggle a to-do item |
+| `updateJournal(id, text)` | `storage:update-journal` | Edit the journal entry |
+| `getDiskUsage()` | `storage:disk-usage` | Audio bytes + userData path |
+| `readAudio(path)` | `storage:read-audio` | Read audio file as ArrayBuffer |
+| `revealInFinder()` | `storage:reveal-in-finder` | Open userData in Finder |
+| `clearAllRecordings()` | `storage:clear-all` | Delete all meetings and audio files |
+
+### Transcription
+
+| `window.api` method | IPC channel | Description |
+| --- | --- | --- |
+| `getPaths()` | `transcription:get-paths` | `{ userData, modelCachePath }` |
+| `startTranscription(id)` | `transcription:start` | Validate meeting + audio, set status `transcribing` |
+| `getModelStatus(modelId)` | `transcription:model-status` | `{ present, sizeBytes }` |
+| `deleteModel(modelId)` | `transcription:delete-model` | Remove cached model files |
+| `onTranscriptionStatus(cb)` | `transcription:status` (listen) | Status push events from main |
+
+### LLM
+
+| `window.api` method | IPC channel | Description |
+| --- | --- | --- |
+| `processTranscript(id)` | `llm:process` | Run summary + todos + journal pipeline |
+| `testLlmConnection()` | `llm:test-connection` | Ping the configured LLM endpoint |
+| `onLlmProgress(cb)` | `llm:progress` (listen) | Step events `{ meetingId, step, label }` |
+| `onLlmDone(cb)` | `llm:done` (listen) | Completion event `{ meetingId }` |
+
+### Settings & Notifications
+
+| `window.api` method | IPC channel | Description |
+| --- | --- | --- |
+| `getSettings()` | `settings:get` | Returns `AppSettings` + `llm.hasApiKey` flag |
+| `saveSettings(partial)` | `settings:save` | Persists settings; `llmApiKey` goes to Keychain |
+| `testMirror(url)` | `hf:test-mirror` | HEAD request to HF mirror via `electron.net` |
+| `showNotification(t, b)` | `notify:show` | Trigger an Electron system notification |
+| `onNavigate(cb)` | `navigate` (listen) | Notification click → React Router navigation |
+| `onTrayCommand(cb)` | `tray:command` (listen) | Menu bar tray action |
+| `onToggleRecordingShortcut(cb)` | `shortcut:toggle-recording` (listen) | Global `⌘⇧R` shortcut |
+
+---
 
 ## Project Structure
 
-```text
-capture/              Swift package for native audio capture and screenshots
-drizzle/              SQL migrations and Drizzle metadata
-docs/                 Context, plans, implementation notes, and current state
-resources/            Bundled native assets, including briefly-capture
-src/main/             Electron main process, IPC, database, settings, LLM client
-src/preload/          Typed contextBridge API exposed to the renderer
-src/renderer/         React application, pages, components, atoms, worker
 ```
+drizzle/              SQL migrations and Drizzle metadata
+docs/                 Architecture docs, plans, and current-state snapshot
+resources/            Bundled assets (app icon, entitlements)
+src/
+  main/               Electron main process
+    ipc/              IPC handler modules (capture, storage, transcription, llm, settings)
+    lib/              DB, schema, settings, LLM client, keychain, tray, notifications, proxy
+    index.ts          Entry: window creation, deep links, tray, global shortcut
+  preload/
+    index.ts          contextBridge implementation (window.api.*)
+    index.d.ts        TypeScript types for window.api
+  renderer/
+    index.html        Entry HTML + CSP meta tag
+    src/
+      atoms/          Jotai atoms (transcription pipeline, meetings, journal)
+      components/     UI components (shadcn/ui + custom)
+      contexts/       React context wrappers
+      lib/            Capture session, utilities
+      pages/          Dashboard, Recordings, Transcript, Journal, Settings
+      workers/        whisper.worker.ts — model download + transcription
+```
+
+---
 
 ## Architecture Overview
 
-```text
-Swift capture binary
-	-> records audio and screenshots
-	-> Electron main process stores metadata and coordinates IPC
-	-> renderer worker transcribes audio locally with Whisper
-	-> main process calls configured LLM endpoint for summaries
-	-> React UI displays meetings, transcripts, and journal entries
 ```
+Renderer (React)
+  CaptureSession (Web Audio + MediaRecorder)
+    → IPC → Main: capture:write-chunk   (1s WebM/Opus chunks streamed to disk)
+    → IPC → Main: capture:finalize      (status → 'recorded')
+
+  startPipelineAtom (Jotai — module-level Worker, survives navigation)
+    → IPC → Main: transcription:start   (validate meeting + audio)
+    → whisper.worker.ts: load ONNX model → transcribe PCM → chunks
+    → IPC → Main: storage:save-transcript  (status → 'transcribed')
+    → IPC → Main: llm:process           (title + summary + todos + journal)
+    → IPC → Main: storage:insert-summary   (status → 'done')
+
+  liveMeetingsAtom (derived — overlays live pipeline stage on DB data)
+    → Dashboard + Recordings always show correct in-flight status
+```
+
+---
 
 ## Documentation
 
-- `docs/current-state.md` for the latest implementation snapshot
-- `docs/context.md` for architecture and codebase structure
-- `docs/plans/README.md` for the original phased implementation plan
-- `docs/implementation/` for focused implementation notes
+- [docs/current-state.md](docs/current-state.md) — latest implementation snapshot and pending work
+- [docs/context.md](docs/context.md) — full architecture and codebase reference
+- [docs/plans/README.md](docs/plans/README.md) — phased implementation plan
 
-## Development Notes
+---
 
-- Settings and app metadata are stored under Electron's `userData` directory.
-- API keys are stored in the macOS Keychain, not in the renderer.
-- Whisper model download and transcription happen in the renderer worker.
-- Main-process IPC owns capture, persistence, notifications, and LLM calls.
+## Contributing
+
+1. Fork the repo and create a feature branch.
+2. Install dependencies with `bun install`.
+3. Run `npm run typecheck` and `npm run lint` before opening a PR — both must pass.
+4. Keep PRs focused; one concern per PR.
+5. API keys and audio files are never committed — check `.gitignore` before staging.
+
+---
 
 ## License
 
-BSD 3-Clause License. See `LICENSE`.
+BSD 3-Clause License. See [LICENSE](LICENSE).
+
