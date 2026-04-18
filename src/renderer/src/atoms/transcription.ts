@@ -54,6 +54,10 @@ export const initialTranscriptionState: TranscriptionState = {
 /** Module-level Worker ref — survives re-renders without living in React state */
 let workerRef: Worker | null = null
 
+/** Module-level IPC unsub handles — cleaned up on reset to avoid stale callbacks */
+let unsubLlmRef: (() => void) | null = null
+let unsubDoneRef: (() => void) | null = null
+
 /** Base state atom for the transcription pipeline */
 export const transcriptionAtom = atom<TranscriptionState>(initialTranscriptionState)
 
@@ -70,7 +74,15 @@ export const transcriptionLlmStepAtom = atom((get) => get(transcriptionAtom).llm
  *  Manages the Whisper Worker via the module-level workerRef so the Worker
  *  lifecycle is not tied to any specific component mount/unmount cycle. */
 export const startPipelineAtom = atom(null, async (get, set, meetingId: number): Promise<void> => {
-  if (get(transcriptionAtom).stage !== 'idle') return
+  // Terminate any previous worker and clean up stale callbacks before starting
+  if (get(transcriptionAtom).stage !== 'idle') {
+    unsubLlmRef?.()
+    unsubLlmRef = null
+    unsubDoneRef?.()
+    unsubDoneRef = null
+    workerRef?.terminate()
+    workerRef = null
+  }
 
   set(transcriptionAtom, { ...initialTranscriptionState, meetingId, stage: 'downloading-model' })
 
@@ -100,8 +112,12 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       )
       unsubLlm()
       unsubDone()
+      unsubLlmRef = null
+      unsubDoneRef = null
     }
   })
+  unsubLlmRef = unsubLlm
+  unsubDoneRef = unsubDone
 
   try {
     const { modelCachePath } = await window.api.getPaths()
@@ -220,8 +236,12 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
   }
 })
 
-/** Terminate any active Worker and reset transcription state to idle. */
+/** Terminate any active Worker, clean up IPC listeners, and reset state to idle. */
 export const resetTranscriptionAtom = atom(null, (_get, set): void => {
+  unsubLlmRef?.()
+  unsubLlmRef = null
+  unsubDoneRef?.()
+  unsubDoneRef = null
   workerRef?.terminate()
   workerRef = null
   set(transcriptionAtom, initialTranscriptionState)

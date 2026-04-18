@@ -4,10 +4,10 @@ import { isToday, parseISO } from 'date-fns'
 import { useAtomValue, useSetAtom } from 'jotai'
 import RecordButton from '../components/RecordButton'
 import MeetingCard from '../components/MeetingCard'
-import { meetingsAtom, loadMeetingsAtom } from '../atoms/pages'
+import { liveMeetingsAtom, loadMeetingsAtom } from '../atoms/pages'
 
 export default function Dashboard(): React.JSX.Element {
-  const meetings = useAtomValue(meetingsAtom)
+  const meetings = useAtomValue(liveMeetingsAtom)
   const loadMeetings = useSetAtom(loadMeetingsAtom)
   const navigate = useNavigate()
 

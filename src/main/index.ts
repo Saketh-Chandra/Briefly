@@ -2,6 +2,42 @@ import { app, shell, BrowserWindow, globalShortcut, session, desktopCapturer } f
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+// ── Deep link handler ──────────────────────────────────────────────────────────
+// Handles briefly:// URLs from Raycast, terminal, or any URL launcher.
+//   briefly://record/start      → start recording
+//   briefly://record/stop       → stop recording
+//   briefly://record/screenshot → take a screenshot
+//   briefly://app/open          → show the window
+function handleDeepLink(url: string): void {
+  try {
+    const parsed = new URL(url)
+    mainWindow?.show()
+    if (parsed.hostname === 'record') {
+      const action = parsed.pathname.replace(/^\//, '')
+      if (action === 'start' || action === 'stop' || action === 'screenshot') {
+        mainWindow?.webContents.send('tray:command', action)
+      }
+    }
+  } catch {
+    // ignore malformed URLs
+  }
+}
+
+// Register briefly:// as the default protocol client for this app.
+// Must be called before app.whenReady().
+app.setAsDefaultProtocolClient('briefly')
+
+// macOS: URL opened while the app is already running.
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+// Single-instance lock — required for second-instance (Windows deep link) to fire.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
 import { getDb } from './lib/db'
 import { resetStuckMeetings } from './lib/db'
 import { applyProxy } from './lib/proxy'
@@ -15,6 +51,7 @@ import { registerNotificationHandlers } from './lib/notifications'
 import { initTray, destroyTray } from './lib/tray'
 
 let mainWindow: BrowserWindow | null = null
+let forceQuit = false
 
 function getSender() {
   return mainWindow?.webContents ?? null
@@ -40,9 +77,10 @@ function createWindow(): void {
     mainWindow!.show()
   })
 
-  // macOS: hide instead of destroy so the app stays alive in the background
+  // macOS: hide instead of destroy so the app stays alive in the background.
+  // But if the user is actually quitting (Cmd+Q / app.quit()), let the window close.
   mainWindow.on('close', (e) => {
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && !forceQuit) {
       e.preventDefault()
       mainWindow?.hide()
     }
@@ -123,6 +161,14 @@ app.whenReady().then(async () => {
     mainWindow?.webContents.send('shortcut:toggle-recording')
   })
 
+  // Windows/Linux: deep link arrives as a second-instance argv.
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find((arg) => arg.startsWith('briefly://'))
+    if (url) handleDeepLink(url)
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -134,6 +180,10 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  forceQuit = true
 })
 
 app.on('will-quit', () => {

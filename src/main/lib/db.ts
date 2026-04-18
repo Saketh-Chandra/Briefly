@@ -133,8 +133,10 @@ export function insertTranscript(params: {
   chunks: import('./types').TranscriptChunk[] | null
   model: string
 }): void {
-  getDb()
-    .insert(transcripts)
+  const db = getDb()
+  // Remove any previous transcript for this meeting (idempotent on re-run)
+  db.delete(transcripts).where(eq(transcripts.meeting_id, params.meetingId)).run()
+  db.insert(transcripts)
     .values({
       meeting_id: params.meetingId,
       content: params.content,
@@ -179,8 +181,9 @@ export function updateJournal(meetingId: number, journal: string): void {
 export function resetMeetingForReprocessing(meetingId: number): void {
   const db = getDb()
   db.delete(summaries).where(eq(summaries.meeting_id, meetingId)).run()
+  db.delete(transcripts).where(eq(transcripts.meeting_id, meetingId)).run()
   db.update(meetings)
-    .set({ status: 'transcribed', updated_at: sql`(datetime('now'))` })
+    .set({ status: 'recorded', updated_at: sql`(datetime('now'))` })
     .where(eq(meetings.id, meetingId))
     .run()
 }

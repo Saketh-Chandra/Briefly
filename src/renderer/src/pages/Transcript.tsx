@@ -43,8 +43,7 @@ export default function Transcript(): React.JSX.Element {
 
   useEffect(() => {
     void load()
-    return () => reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Do NOT call reset() on unmount — the pipeline is global and must survive navigation
   }, [load])
 
   useEffect(() => {
@@ -136,7 +135,7 @@ export default function Transcript(): React.JSX.Element {
   }
 
   async function handleRerun(): Promise<void> {
-    if (!meeting?.transcript) return
+    reset() // reset atom to idle and clean up any stale IPC subscriptions
     await window.api.resetForReprocessing(meetingId)
     await load()
     void startPipeline(meetingId)
@@ -194,12 +193,12 @@ export default function Transcript(): React.JSX.Element {
           >
             <Download size={13} />
           </Button>
-          {meeting.transcript && (
+          {!isPipelineActive && meeting.status !== 'recording' && meeting.status !== 'recorded' && (
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              title="Re-run LLM"
+              title="Re-run pipeline"
               onClick={() => void handleRerun()}
             >
               <RefreshCw size={13} />

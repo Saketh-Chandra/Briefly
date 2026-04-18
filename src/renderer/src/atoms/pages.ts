@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import type { Meeting, MeetingStatus } from '../../../main/lib/types'
+import { transcriptionAtom } from './transcription'
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -16,6 +17,26 @@ export const loadMeetingsAtom = atom(null, async (_get, set): Promise<void> => {
   set(meetingsAtom, all)
 })
 
+/**
+ * Meetings with the live pipeline status overlaid so that navigating to
+ * Dashboard or Recordings always shows the correct in-flight state without
+ * waiting for a DB round-trip.
+ */
+export const liveMeetingsAtom = atom((get) => {
+  const list = get(meetingsAtom)
+  const txState = get(transcriptionAtom)
+  if (txState.meetingId === null || txState.stage === 'idle' || txState.stage === 'done') {
+    return list
+  }
+  const liveStatus: MeetingStatus =
+    txState.stage === 'processing-llm'
+      ? 'processing'
+      : txState.stage === 'error'
+        ? 'error'
+        : 'transcribing'
+  return list.map((m) => (m.id === txState.meetingId ? { ...m, status: liveStatus } : m))
+})
+
 // ── Recordings page filters ───────────────────────────────────────────────────
 
 /** Full-text search term for the Recordings page. */
@@ -26,7 +47,7 @@ export const statusFilterAtom = atom<MeetingStatus | null>(null)
 
 /** Meetings filtered by statusFilterAtom and searchTermAtom — derived, no async. */
 export const filteredMeetingsAtom = atom((get) => {
-  let result = get(meetingsAtom)
+  let result = get(liveMeetingsAtom)
   const statusFilter = get(statusFilterAtom)
   const searchTerm = get(searchTermAtom)
   if (statusFilter) result = result.filter((m) => m.status === statusFilter)

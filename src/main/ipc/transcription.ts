@@ -60,8 +60,20 @@ export function registerTranscriptionHandlers(getSender: () => WebContents | nul
       }
     }
 
+    const retriableStatuses = [
+      'recorded',
+      'transcribed',
+      'done',
+      'error',
+      'transcribing',
+      'processing'
+    ]
+    if (!retriableStatuses.includes(meeting.status)) {
+      throw new Error(`Meeting ${meetingId} cannot be transcribed from '${meeting.status}' state`)
+    }
+    // Normalise to 'recorded' so downstream status transitions are consistent
     if (meeting.status !== 'recorded') {
-      throw new Error(`Meeting ${meetingId} is not in 'recorded' state (got '${meeting.status}')`)
+      updateMeetingStatus(meetingId, 'recorded')
     }
     if (!existsSync(meeting.audio_path) || statSync(meeting.audio_path).size === 0) {
       const message = `Audio file not found: ${meeting.audio_path}`

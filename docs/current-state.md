@@ -2,6 +2,71 @@
 
 ## What Has Been Built (all complete, typechecks pass)
 
+### Background Pipeline & Re-run Fixes (latest session)
+
+Six bugs in the transcription/re-run flow were identified and fixed:
+
+**DB layer (`src/main/lib/db.ts`)**
+- `resetMeetingForReprocessing` now deletes the `transcripts` row (not just `summaries`) and sets status to `'recorded'` (was incorrectly setting `'transcribed'`, causing the guard to immediately throw)
+- `insertTranscript` is now idempotent — deletes any existing transcript row for the meeting before inserting, preventing duplicate rows accumulating across re-runs
+
+**IPC layer (`src/main/ipc/transcription.ts`)**
+- `transcription:start` guard loosened: accepts `recorded`, `transcribed`, `done`, `error`, `transcribing`, `processing` states; normalises to `'recorded'` internally so downstream status transitions stay consistent (was throwing for any state other than `'recorded'`)
+
+**Renderer atom (`src/renderer/src/atoms/transcription.ts`)**
+- `startPipelineAtom` no longer returns early when stage is not `'idle'` — it now does a clean cancel-and-restart (terminates Worker, clears IPC listeners) before starting
+- Module-level `unsubLlmRef` / `unsubDoneRef` refs added so `resetTranscriptionAtom` always cleans up stale IPC callbacks, preventing ghost listeners across re-runs
+
+**Pages atom (`src/renderer/src/atoms/pages.ts`)**
+- `liveMeetingsAtom` added — derived atom that overlays the live `transcriptionAtom` stage onto the matching meeting in `meetingsAtom`, so Dashboard and Recordings always show the correct in-flight status without a DB round-trip
+- `filteredMeetingsAtom` now derives from `liveMeetingsAtom` instead of `meetingsAtom`
+
+**Dashboard (`src/renderer/src/pages/Dashboard.tsx`)**
+- Now reads from `liveMeetingsAtom` instead of `meetingsAtom`
+
+**Transcript page (`src/renderer/src/pages/Transcript.tsx`)**
+- `reset()` removed from component unmount cleanup — pipeline (Worker + IPC listeners) now survives navigation between pages
+- `handleRerun` now calls `reset()` first (clean atom state) and works from `error` state too (previously blocked by `if (!meeting?.transcript) return`)
+- Re-run button now visible whenever `!isPipelineActive && status !== 'recording' && status !== 'recorded'` (covers `transcribed`, `done`, `error`) instead of only when `meeting.transcript` exists
+
+**Net result:** Transcription and LLM processing run fully in the background. User can navigate to Dashboard, Recordings, or Journal while the pipeline runs; status badges update live. Returning to the Transcript page re-attaches to the running pipeline immediately.
+
+---
+### desktopCapturer Migration (Swift CLI → Electron)
+- Swift CLI (`capture/`) and `resources/briefly-capture` binary removed entirely
+- `src/main/ipc/capture.ts` — all new IPC handlers:
+  - `capture:get-sources` — lists screens/windows via `desktopCapturer`, filters out Briefly's own windows
+  - `capture:check-permissions` / `capture:request-mic-permission` — macOS `systemPreferences` wrappers
+  - `capture:start` — stores `pendingSourceId` for `setDisplayMediaRequestHandler`, creates session dir + DB row
+  - `capture:write-chunk` — appends 1-second WebM/Opus chunks to disk (path constructed server-side)
+  - `capture:finalize` — updates DB duration/status after `MediaRecorder.onstop`
+  - `capture:screenshot-save` — high-res `getSources` thumbnail written as PNG
+- `src/main/index.ts` — `setDisplayMediaRequestHandler` registered with `claimPendingSourceId()` pattern; `audio: 'loopback'` → CoreAudio Tap on macOS 14.2+ / WASAPI on Windows
+- `src/renderer/src/lib/capture-session.ts` — new renderer-side `CaptureSession` class: `getDisplayMedia` + Web Audio mixing + `MediaRecorder` (1 s timeslice, WebM/Opus) + BroadcastChannel events
+- `src/main/lib/types.ts` — `CaptureEvent` (renamed from `CliEvent`, deprecated alias kept), `CaptureSource` type
+- `electron-builder.yml` — `NSAudioCaptureUsageDescription` added; `asarUnpack` narrowed to `drizzle/**` only
+- `package.json` — `build:capture` script removed
+
+### macOS Menu Bar Tray
+- `src/main/lib/tray.ts` — `Tray` with dynamic context menu: idle shows "Start Recording"; active shows "● Recording…", "Stop Recording", "Take Screenshot"; "Show Briefly" and "Quit" always present
+- `updateTrayState(recording, getWindow)` called from `capture:start` and `capture:finalize` to keep menu in sync with recording state
+- Icon: falls back to resized app icon; ready for `tray-idleTemplate.png` / `tray-recordingTemplate.png` swap once branding assets exist
+- Tray commands sent to renderer via `tray:command` IPC channel, handled in `AppShell.tsx`
+
+### Deep Links (`briefly://`)
+- `app.setAsDefaultProtocolClient('briefly')` registered before `app.whenReady()`
+- `app.on('open-url', ...)` — macOS handler (URL opened while app is running)
+- `app.requestSingleInstanceLock()` + `app.on('second-instance', ...)` — Windows handler + prevents duplicate instances
+- `handleDeepLink(url)` — parses URL, shows window, forwards to renderer via `tray:command`
+- `electron-builder.yml` — `protocols: [{name: Briefly, schemes: [briefly]}]` under `mac:`
+- Supported URLs:
+  - `briefly://record/start` — start recording
+  - `briefly://record/stop` — stop recording
+  - `briefly://record/screenshot` — take a screenshot
+  - `briefly://app/open` — show the window
+- Deep link actions go through the same `AppShell.tsx` state guards as tray/keyboard shortcut paths
+
+
 ### Jotai Migration
 - `src/renderer/src/atoms/transcription.ts` — full transcription pipeline state + `startPipelineAtom`, `resetTranscriptionAtom`
 - `src/renderer/src/atoms/pages.ts` — meetings list, search/filter, journal date atoms

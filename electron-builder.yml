@@ -21,6 +21,10 @@ nsis:
 mac:
   identity: null
   entitlementsInherit: build/entitlements.mac.plist
+  protocols:
+    - name: Briefly
+      schemes:
+        - briefly
   extendInfo:
     - NSMicrophoneUsageDescription: Briefly needs microphone access to capture your voice during meetings.
     - NSScreenCaptureUsageDescription: Briefly needs screen recording access to capture meeting audio.
