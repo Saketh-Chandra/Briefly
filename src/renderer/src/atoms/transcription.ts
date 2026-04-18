@@ -123,6 +123,31 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
     const { modelCachePath } = await window.api.getPaths()
     const settings = await window.api.getSettings()
 
+    // Pre-flight: ensure the model is cached before spinning up the worker.
+    // transformers.js uses the browser Cache API (key: 'briefly-transformers-v2')
+    // exclusively because allowLocalModels=false. If the model is absent and the
+    // network/proxy is unavailable, the worker would only surface a cryptic
+    // "Failed to fetch" — so we fail fast here with an actionable message.
+    let modelCached = false
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open('briefly-transformers-v2')
+        const keys = await cache.keys()
+        modelCached = keys.some((req) => req.url.includes(settings.whisperModel))
+      } catch {
+        // Cache API unavailable — let the worker proceed and surface its own error
+        modelCached = true
+      }
+    } else {
+      modelCached = true // non-browser env, let worker handle it
+    }
+
+    if (!modelCached) {
+      throw new Error(
+        'Whisper model not downloaded. Open Settings → Whisper Model and click Download, then try again.'
+      )
+    }
+
     if (workerRef) workerRef.terminate()
     const worker = new Worker(new URL('../workers/whisper.worker.ts', import.meta.url), {
       type: 'module'

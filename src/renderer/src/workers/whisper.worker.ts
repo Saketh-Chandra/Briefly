@@ -113,6 +113,21 @@ async function loadModel(modelId: string): Promise<void> {
           : 'huggingface.co appears to be blocked. Set a HuggingFace Mirror URL in Advanced settings (e.g. https://hf-mirror.com) and try again.'
       )
     }
+    // Plain network failure — proxy down, no internet, DNS failure, etc.
+    if (
+      msg.toLowerCase().includes('failed to fetch') ||
+      msg.includes('NetworkError') ||
+      msg.includes('net::ERR_') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('ETIMEDOUT')
+    ) {
+      const host = configuredHost ?? 'huggingface.co'
+      throw new Error(
+        configuredHost
+          ? `Cannot reach mirror ${host} — your proxy may be down or the URL is wrong. Check Settings → Advanced and try downloading the model again.`
+          : 'Cannot reach huggingface.co — check your network connection. If you use a proxy, set it in Settings → Proxy, or add a HuggingFace Mirror URL in Settings → Advanced.'
+      )
+    }
     throw err
   }
 
