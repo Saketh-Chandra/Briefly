@@ -1,4 +1,12 @@
-import { app, shell, BrowserWindow, globalShortcut, session, desktopCapturer } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  WebContents,
+  globalShortcut,
+  session,
+  desktopCapturer
+} from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -53,7 +61,7 @@ import { initTray, destroyTray } from './lib/tray'
 let mainWindow: BrowserWindow | null = null
 let forceQuit = false
 
-function getSender() {
+function getSender(): WebContents | null {
   return mainWindow?.webContents ?? null
 }
 
@@ -137,7 +145,7 @@ app.whenReady().then(async () => {
   createWindow()
 
   // Tray — init after window so getWindow() is valid
-  const getWindow = () => mainWindow
+  const getWindow = (): BrowserWindow | null => mainWindow
   setTrayWindowGetter(getWindow)
   if (process.platform === 'darwin') {
     initTray(getWindow)

@@ -43,7 +43,7 @@ const api = {
   // Returns an unsubscribe function — call it in useEffect cleanup.
   onCaptureEvent: (cb: (event: CaptureEvent) => void): (() => void) => {
     const bus = new BroadcastChannel(CAPTURE_EVENT_CHANNEL)
-    const handler = (e: MessageEvent<CaptureEvent>) => cb(e.data)
+    const handler = (e: MessageEvent<CaptureEvent>): void => cb(e.data)
     bus.addEventListener('message', handler)
     return () => {
       bus.removeEventListener('message', handler)
@@ -120,14 +120,14 @@ const api = {
     const handler = (
       _: Electron.IpcRendererEvent,
       event: { meetingId: number; step: number; total: number; label: string }
-    ) => cb(event)
+    ): void => cb(event)
     ipcRenderer.on('llm:progress', handler)
     return () => ipcRenderer.removeListener('llm:progress', handler)
   },
 
   // Fires when LLM processing for a meeting finishes successfully.
   onLlmDone: (cb: (event: { meetingId: number }) => void): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, event: { meetingId: number }) => cb(event)
+    const handler = (_: Electron.IpcRendererEvent, event: { meetingId: number }): void => cb(event)
     ipcRenderer.on('llm:done', handler)
     return () => ipcRenderer.removeListener('llm:done', handler)
   },
@@ -139,7 +139,7 @@ const api = {
     const handler = (
       _: Electron.IpcRendererEvent,
       event: { meetingId: number; status: string; error?: string }
-    ) => cb(event)
+    ): void => cb(event)
     ipcRenderer.on('transcription:status', handler)
     return () => ipcRenderer.removeListener('transcription:status', handler)
   },
@@ -179,7 +179,7 @@ const api = {
 
   // Fired when the user presses ⌘⇧R (registered as globalShortcut in main)
   onToggleRecordingShortcut: (cb: () => void): (() => void) => {
-    const handler = () => cb()
+    const handler = (): void => cb()
     ipcRenderer.on('shortcut:toggle-recording', handler)
     return () => ipcRenderer.removeListener('shortcut:toggle-recording', handler)
   },
@@ -197,7 +197,7 @@ const api = {
 
   // Fired when the user clicks a system notification — navigate to the given route.
   onNavigate: (cb: (path: string) => void): (() => void) => {
-    const handler = (_: Electron.IpcRendererEvent, path: string) => cb(path)
+    const handler = (_: Electron.IpcRendererEvent, path: string): void => cb(path)
     ipcRenderer.on('navigate', handler)
     return () => ipcRenderer.removeListener('navigate', handler)
   },

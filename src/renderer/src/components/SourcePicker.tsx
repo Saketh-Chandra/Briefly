@@ -145,7 +145,7 @@ export default function SourcePicker(): React.JSX.Element {
         <div className="border-t border-border/40 px-3 py-2">
           <p className="text-[10px] text-muted-foreground/50">
             System audio is always captured regardless of source. Full-screen apps and windows on
-            other Spaces won't appear — use a Screen source instead.
+            other Spaces won&apos;t appear — use a Screen source instead.
           </p>
         </div>
       </DropdownMenuContent>

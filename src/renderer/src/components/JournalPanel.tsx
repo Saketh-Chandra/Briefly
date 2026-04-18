@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { Textarea } from './ui/textarea'
 
 interface JournalPanelProps {
@@ -11,12 +11,15 @@ export default function JournalPanel({
   journal: initial
 }: JournalPanelProps): React.JSX.Element {
   const [value, setValue] = useState(initial ?? '')
+  const [prevInitial, setPrevInitial] = useState(initial)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Sync when prop changes (e.g. LLM just finished)
-  useEffect(() => {
+  // Sync state when initial prop changes (e.g. LLM just finished)
+  // Uses render-time state update (React-recommended pattern) instead of useEffect
+  if (prevInitial !== initial) {
+    setPrevInitial(initial)
     setValue(initial ?? '')
-  }, [initial])
+  }
 
   function handleChange(text: string): void {
     setValue(text)

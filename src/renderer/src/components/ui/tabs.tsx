@@ -8,7 +8,7 @@ function Tabs({
   className,
   orientation = 'horizontal',
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+}: React.ComponentProps<typeof TabsPrimitive.Root>): React.JSX.Element {
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
@@ -38,7 +38,8 @@ function TabsList({
   className,
   variant = 'default',
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>) {
+}: React.ComponentProps<typeof TabsPrimitive.List> &
+  VariantProps<typeof tabsListVariants>): React.JSX.Element {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
@@ -49,7 +50,10 @@ function TabsList({
   )
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>): React.JSX.Element {
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
@@ -65,7 +69,10 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   )
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>): React.JSX.Element {
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
@@ -75,4 +82,5 @@ function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPr
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }

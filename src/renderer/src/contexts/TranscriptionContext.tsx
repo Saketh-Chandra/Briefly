@@ -32,6 +32,7 @@ export function TranscriptionProvider({
 // Returns the same shape as before; action references are stable (Jotai guarantees
 // useSetAtom always returns the same function identity for a given atom).
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTranscription(): TranscriptionContextValue {
   return {
     state: useAtomValue(transcriptionAtom),

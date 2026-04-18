@@ -87,6 +87,15 @@ export default function Settings(): React.JSX.Element {
   const [dlProgress, setDlProgress] = useState(0)
   const [dlError, setDlError] = useState('')
   const dlWorkerRef = useRef<Worker | null>(null)
+  const [prevWhisperModel, setPrevWhisperModel] = useState(whisperModel)
+
+  // Reset download state immediately when model selection changes (render-time update)
+  if (prevWhisperModel !== whisperModel) {
+    setPrevWhisperModel(whisperModel)
+    setDlState('idle')
+    setDlProgress(0)
+    setDlError('')
+  }
 
   // Storage
   const [diskUsage, setDiskUsage] = useState(0)
@@ -152,9 +161,6 @@ export default function Settings(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    setDlState('idle')
-    setDlProgress(0)
-    setDlError('')
     // First check filesystem (fast); if absent, check browser Cache API
     // (model files are stored there when useBrowserCache=true in the worker).
     window.api

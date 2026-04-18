@@ -50,7 +50,7 @@ function Button({
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-  }) {
+  }): React.JSX.Element {
   const Comp = asChild ? Slot.Root : 'button'
 
   return (
@@ -64,4 +64,5 @@ function Button({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { Button, buttonVariants }
