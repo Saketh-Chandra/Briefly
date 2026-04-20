@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Screenshot Gallery & Lightbox**: 
+  - Added new "Screenshots" tab in the Transcript view for captured meeting screen grabs.
+  - Implemented a full-screen, native-feeling image lightbox with thumbnail filmstrip.
+  - Added keyboard shortcuts for navigating screenshots (Left/Right/Escape).
+  - Info panel with resolution, capture timestamp, and estimated file size.
+  - One-click copy raw image data directly to macOS clipboard.
+  - Direct download button for high-res PNGs.
+
 ### Changed
 - `README.md` and `docs/context.md` fully rewritten to reflect current architecture (no Swift binary, macOS 14.2+ requirement, `bun` for dependencies, `npm` for scripts)
 

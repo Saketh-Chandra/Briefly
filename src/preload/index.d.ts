@@ -73,6 +73,8 @@ declare global {
       testLlmConnection: () => Promise<{ ok: boolean }>
       testMirror: (endpoint: string) => Promise<{ ok: boolean; error?: string }>
       readAudio: (audioPath: string) => Promise<ArrayBuffer>
+      readScreenshot: (screenshotPath: string) => Promise<string>
+      writeImageToClipboard: (dataUrl: string) => Promise<void>
       updateTodo: (meetingId: number, index: number, done: boolean) => Promise<void>
       updateJournal: (meetingId: number, journal: string) => Promise<void>
       resetForReprocessing: (meetingId: number) => Promise<void>

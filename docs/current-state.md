@@ -2,7 +2,15 @@
 
 ## What Has Been Built (all complete, typechecks pass)
 
-### Background Pipeline & Re-run Fixes (latest session)
+### Screenshot UI & Lightbox (latest session)
+- **Transcript Page Tab**: A new "Screenshots" tab displays high-res previews (`3840×2160` PNG) with lazy-loading and aspect-video framing.
+- **Lightbox**: Developed a full-screen, `createPortal`-based overlay using a dark-glass macOS aesthetic.
+- **Frameless Window Handlers**: Applied `[-webkit-app-region:drag]` and `[-webkit-app-region:no-drag]` for native frame dragging in the lightbox overlay, accounting for macOS traffic light placement.
+- **Image Info Panel**: A slide-in, blur-backed HUD displaying image dimensions, capture time, and estimated size.
+- **Native OS Clipboard**: Replaced browser-level `navigator.clipboard` with an IPC bridge using `electron`'s `clipboard.writeImage(nativeImage.createFromDataURL(...))` to bypass security restrictions.
+- **Direct Downloads**: Added download buttons mapping to automatically named files.
+
+### Background Pipeline & Re-run Fixes
 
 Six bugs in the transcription/re-run flow were identified and fixed:
 
@@ -152,6 +160,17 @@ After cleanup, run `npm run typecheck` to confirm 0 errors.
 ---
 
 ## Files Modified in This Session (reference)
+
+| File | Key Change |
+|------|-----------|
+| `src/renderer/src/pages/Transcript.tsx` | Added Screenshots tab, full-screen lightbox, Info HUD, copy/download buttons, macOS drag regions |
+| `src/renderer/src/assets/main.css` | Lightbox specific animations (`lightboxEnter`, `lightboxFadeIn`) |
+| `src/main/ipc/storage.ts` | Added `storage:read-screenshot` and `clipboard:write-image` IPC handlers |
+| `src/preload/index.ts` / `index.d.ts` | Expose `readScreenshot` and `writeImageToClipboard` |
+
+---
+
+## Files Modified in Previous Session (reference)
 
 | File | Key Change |
 |------|-----------|

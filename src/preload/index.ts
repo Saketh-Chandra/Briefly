@@ -168,6 +168,12 @@ const api = {
   readAudio: (audioPath: string): Promise<ArrayBuffer> =>
     ipcRenderer.invoke('storage:read-audio', audioPath),
 
+  readScreenshot: (screenshotPath: string): Promise<string> =>
+    ipcRenderer.invoke('storage:read-screenshot', screenshotPath),
+
+  writeImageToClipboard: (dataUrl: string): Promise<void> =>
+    ipcRenderer.invoke('clipboard:write-image', dataUrl),
+
   updateTodo: (meetingId: number, index: number, done: boolean): Promise<void> =>
     ipcRenderer.invoke('storage:update-todo', meetingId, index, done),
 

@@ -1,4 +1,4 @@
-import { ipcMain, app, shell } from 'electron'
+import { ipcMain, app, shell, clipboard, nativeImage } from 'electron'
 import { existsSync, readdirSync, statSync } from 'fs'
 import { rmSync } from 'fs'
 import { join } from 'path'
@@ -106,5 +106,25 @@ export function registerStorageHandlers(): void {
     for (const m of all) {
       deleteMeeting(m.id)
     }
+  })
+
+  ipcMain.handle(
+    'storage:read-screenshot',
+    async (_event, screenshotPath: string): Promise<string> => {
+      const { readFileSync, existsSync: exists } = await import('fs')
+      // Restrict reads to within the app's userData directory to prevent path traversal
+      const allowed = app.getPath('userData')
+      if (!screenshotPath.startsWith(allowed)) {
+        throw new Error('Access denied: path is outside userData')
+      }
+      if (!exists(screenshotPath)) throw new Error(`Screenshot not found: ${screenshotPath}`)
+      const buf = readFileSync(screenshotPath)
+      return `data:image/png;base64,${buf.toString('base64')}`
+    }
+  )
+
+  ipcMain.handle('clipboard:write-image', (_event, dataUrl: string): void => {
+    const image = nativeImage.createFromDataURL(dataUrl)
+    clipboard.writeImage(image)
   })
 }
