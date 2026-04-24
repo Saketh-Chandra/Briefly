@@ -34,6 +34,7 @@ export type TranscriptionStage =
 export interface TranscriptionState {
   meetingId: number | null
   stage: TranscriptionStage
+  failedStage: TranscriptionStage | null
   progress: number // 0–100
   chunks: TranscriptChunk[]
   error: string | null
@@ -44,6 +45,7 @@ export interface TranscriptionState {
 export const initialTranscriptionState: TranscriptionState = {
   meetingId: null,
   stage: 'idle',
+  failedStage: null,
   progress: 0,
   chunks: [],
   error: null,
@@ -253,6 +255,7 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       (prev): TranscriptionState => ({
         ...prev,
         stage: 'error',
+        failedStage: prev.stage,
         error: message
       })
     )

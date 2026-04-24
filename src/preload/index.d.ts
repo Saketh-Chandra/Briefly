@@ -82,6 +82,8 @@ declare global {
       onTrayCommand: (cb: (command: 'start' | 'stop' | 'screenshot') => void) => () => void
       onNavigate: (cb: (path: string) => void) => () => void
       showNotification: (title: string, body: string) => void
+      getOsInfo: () => Promise<{ darwinVersion: string }>
+      openScreenRecordingSettings: () => Promise<void>
     }
   }
 }

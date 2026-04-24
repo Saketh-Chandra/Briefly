@@ -68,6 +68,9 @@ async function loadModel(modelId: string): Promise<void> {
   const device = await getDevice()
   console.log(`[whisper-worker] device: ${device}`)
 
+  // Aggregate per-file bytes so we emit a single 0→100% bar across all files
+  const fileBytes = new Map<string, { loaded: number; total: number }>()
+
   try {
     transcriber = await pipeline('automatic-speech-recognition', modelId, {
       device,
@@ -80,20 +83,30 @@ async function loadModel(modelId: string): Promise<void> {
         file?: string
         loaded?: number
         total?: number
+        progress?: number
       }) => {
         if (progress.status === 'initiate') {
           console.log('[whisper-worker] fetching:', progress.file)
         }
-        if (
-          (progress.status === 'downloading' || progress.status === 'loading') &&
-          progress.total
-        ) {
-          const pct = Math.round(((progress.loaded ?? 0) / progress.total) * 100)
+        // Transformers.js v4 uses 'progress' (not 'downloading'/'loading')
+        if (progress.status === 'progress' && progress.file && progress.total) {
+          fileBytes.set(progress.file, {
+            loaded: progress.loaded ?? 0,
+            total: progress.total
+          })
+          // Compute aggregate progress across all known files
+          let totalLoaded = 0
+          let totalSize = 0
+          for (const entry of fileBytes.values()) {
+            totalLoaded += entry.loaded
+            totalSize += entry.total
+          }
+          const pct = totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0
           emit({
             type: 'model_loading',
             progress: pct,
-            total: progress.total,
-            file: progress.file ?? ''
+            total: totalSize,
+            file: progress.file
           })
         }
       }

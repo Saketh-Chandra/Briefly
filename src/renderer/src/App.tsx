@@ -9,8 +9,13 @@ import Recordings from './pages/Recordings'
 import Transcript from './pages/Transcript'
 import Journal from './pages/Journal'
 import Settings from './pages/Settings'
+import Onboarding from './pages/Onboarding'
 
 const router = createHashRouter([
+  {
+    path: '/onboarding',
+    element: <Onboarding />
+  },
   {
     path: '/',
     element: <AppShell />,

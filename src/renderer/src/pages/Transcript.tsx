@@ -1,7 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Copy, Download, RefreshCw, Trash2, ArrowLeft, ChevronLeft, ChevronRight, X, Maximize2, Info, Check, HardDrive, Monitor, Calendar } from 'lucide-react'
+import {
+  Copy,
+  Download,
+  RefreshCw,
+  Trash2,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Maximize2,
+  Info,
+  Check,
+  HardDrive,
+  Monitor,
+  Calendar
+} from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
@@ -267,10 +282,12 @@ export default function Transcript(): React.JSX.Element {
         <div className="shrink-0 px-5 pt-4">
           <PipelineStatus
             stage={txState.stage}
+            failedStage={txState.failedStage}
             progress={txState.progress}
             llmStep={txState.llmStep}
             llmLabel={txState.llmLabel}
             error={txState.error}
+            onRetry={handleRerun}
           />
         </div>
       )}
@@ -394,16 +411,20 @@ export default function Transcript(): React.JSX.Element {
             >
               <div className="flex items-center sm:w-40">
                 <span className="font-mono text-[11px] tracking-[0.2em] text-white/40 uppercase">
-                  {String(lightboxIdx + 1).padStart(2, '0')} / {String(screenshotUrls.length).padStart(2, '0')}
+                  {String(lightboxIdx + 1).padStart(2, '0')} /{' '}
+                  {String(screenshotUrls.length).padStart(2, '0')}
                 </span>
               </div>
-              
+
               {meeting.screenshots[lightboxIdx]?.taken_at && (
                 <span className="hidden w-48 text-center font-mono text-[11px] text-white/30 sm:block flex-1">
-                  {format(parseISO(meeting.screenshots[lightboxIdx].taken_at), 'MMM d, yyyy  HH:mm:ss')}
+                  {format(
+                    parseISO(meeting.screenshots[lightboxIdx].taken_at),
+                    'MMM d, yyyy  HH:mm:ss'
+                  )}
                 </span>
               )}
-              
+
               <div className="flex items-center justify-end gap-1 sm:w-40">
                 <button
                   onClick={() => setShowInfo(!showInfo)}
@@ -419,7 +440,11 @@ export default function Transcript(): React.JSX.Element {
                   aria-label="Copy"
                   title="Copy Image"
                 >
-                  {hasCopiedImage ? <Check size={14} strokeWidth={2} className="text-green-400" /> : <Copy size={14} strokeWidth={1.5} />}
+                  {hasCopiedImage ? (
+                    <Check size={14} strokeWidth={2} className="text-green-400" />
+                  ) : (
+                    <Copy size={14} strokeWidth={1.5} />
+                  )}
                 </button>
                 <a
                   href={screenshotUrls[lightboxIdx]}
@@ -444,12 +469,16 @@ export default function Transcript(): React.JSX.Element {
             {/* Right side floating Info Panel */}
             {showInfo && (
               <div className="absolute right-6 top-20 z-30 w-72 overflow-hidden rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4">
-                <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/70">Image Details</h3>
+                <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/70">
+                  Image Details
+                </h3>
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3 text-sm text-white/80">
                     <Monitor size={14} className="text-white/40" />
                     <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">Resolution</div>
+                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                        Resolution
+                      </div>
                       <div className="font-mono">3840 × 2160</div>
                     </div>
                   </div>
@@ -457,17 +486,32 @@ export default function Transcript(): React.JSX.Element {
                   <div className="flex items-center gap-3 text-sm text-white/80">
                     <Calendar size={14} className="text-white/40" />
                     <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">Captured At</div>
-                      <div className="font-mono">{format(parseISO(meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()), 'PPpp')}</div>
+                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                        Captured At
+                      </div>
+                      <div className="font-mono">
+                        {format(
+                          parseISO(
+                            meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()
+                          ),
+                          'PPpp'
+                        )}
+                      </div>
                     </div>
                   </div>
                   <Separator className="bg-white/5" />
                   <div className="flex items-center gap-3 text-sm text-white/80">
                     <HardDrive size={14} className="text-white/40" />
                     <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">Format & Size</div>
+                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                        Format & Size
+                      </div>
                       <div className="font-mono">
-                        PNG • {Math.round(((screenshotUrls[lightboxIdx].length - 22) * 0.75) / 1024 / 1024 * 10) / 10} MB
+                        PNG •{' '}
+                        {Math.round(
+                          (((screenshotUrls[lightboxIdx].length - 22) * 0.75) / 1024 / 1024) * 10
+                        ) / 10}{' '}
+                        MB
                       </div>
                     </div>
                   </div>

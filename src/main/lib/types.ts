@@ -92,6 +92,7 @@ export interface AppSettings {
   whisperLanguage: string
   hfEndpoint?: string
   proxy?: ProxySettings
+  onboardingComplete?: boolean
   llm: {
     baseURL: string
     model: string

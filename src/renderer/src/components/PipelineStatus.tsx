@@ -1,13 +1,17 @@
 import React from 'react'
+import { RotateCcw } from 'lucide-react'
 import { Progress } from './ui/progress'
+import { Button } from './ui/button'
 import type { TranscriptionStage } from '../contexts/TranscriptionContext'
 
 interface PipelineStatusProps {
   stage: TranscriptionStage
+  failedStage: TranscriptionStage | null
   progress: number
   llmStep: number
   llmLabel: string
   error: string | null
+  onRetry?: () => void
 }
 
 interface Step {
@@ -21,23 +25,52 @@ const STEPS: Step[] = [
   { label: 'Summarise', stages: ['processing-llm'] }
 ]
 
+const FAILED_STAGE_LABEL: Partial<Record<TranscriptionStage, string>> = {
+  'downloading-model': 'Model loading failed',
+  transcribing: 'Transcription failed',
+  'processing-llm': 'Summary generation failed'
+}
+
 function activeStepIndex(stage: TranscriptionStage): number {
   return STEPS.findIndex((s) => s.stages.includes(stage))
 }
 
 export default function PipelineStatus({
   stage,
+  failedStage,
   progress,
   llmStep,
   llmLabel,
-  error
+  error,
+  onRetry
 }: PipelineStatusProps): React.JSX.Element | null {
   if (stage === 'idle' || stage === 'done') return null
 
   if (stage === 'error') {
+    const stepLabel = (failedStage && FAILED_STAGE_LABEL[failedStage]) ?? 'Processing failed'
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-        {error ?? 'An error occurred during processing.'}
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1 min-w-0">
+            <p className="text-sm font-medium text-destructive">{stepLabel}</p>
+            {error && (
+              <p className="text-[11px] text-destructive/70 break-words">
+                {error.length > 180 ? error.slice(0, 180) + '…' : error}
+              </p>
+            )}
+          </div>
+          {onRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="shrink-0 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <RotateCcw size={12} className="mr-1.5" />
+              Retry
+            </Button>
+          )}
+        </div>
       </div>
     )
   }

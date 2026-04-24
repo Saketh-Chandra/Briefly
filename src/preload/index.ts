@@ -211,7 +211,14 @@ const api = {
   // Trigger a main-process system notification from the renderer.
   showNotification: (title: string, body: string): void => {
     ipcRenderer.send('notify:show', title, body)
-  }
+  },
+
+  // Returns the Darwin kernel version string — used to detect macOS version.
+  getOsInfo: (): Promise<{ darwinVersion: string }> => ipcRenderer.invoke('platform:os-info'),
+
+  // Open macOS Screen Recording privacy panel in System Settings.
+  openScreenRecordingSettings: (): Promise<void> =>
+    ipcRenderer.invoke('system:open-screen-recording-settings')
 }
 
 if (process.contextIsolated) {

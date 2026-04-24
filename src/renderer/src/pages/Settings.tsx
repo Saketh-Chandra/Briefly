@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  CheckCircle,
-  XCircle,
   Loader2,
   FolderOpen,
   Trash2,
   Download,
   X,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  CheckCircle,
+  XCircle
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -29,6 +30,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '../components/ui/dialog'
+import LlmFields from '../components/LlmFields'
 import type { ProxySettings } from '../../../main/lib/types'
 
 const WHISPER_MODELS = [
@@ -50,14 +52,32 @@ const LANGUAGES = [
   'chinese'
 ]
 
-async function checkBrowserCache(modelId: string): Promise<boolean> {
-  if (!('caches' in window)) return false
+async function checkBrowserCache(
+  modelId: string
+): Promise<{ present: boolean; sizeBytes: number }> {
+  if (!('caches' in window)) return { present: false, sizeBytes: 0 }
   try {
     const cache = await caches.open('briefly-transformers-v2')
     const keys = await cache.keys()
-    return keys.some((req) => req.url.includes(modelId))
+    const matching = keys.filter((req) => req.url.includes(modelId))
+    if (matching.length === 0) return { present: false, sizeBytes: 0 }
+    let total = 0
+    for (const req of matching) {
+      const res = await cache.match(req)
+      if (res) {
+        const cl = res.headers.get('content-length')
+        if (cl) {
+          total += parseInt(cl, 10)
+        } else {
+          // Fallback: read the body to count bytes
+          const buf = await res.arrayBuffer()
+          total += buf.byteLength
+        }
+      }
+    }
+    return { present: true, sizeBytes: total }
   } catch {
-    return false
+    return { present: false, sizeBytes: 0 }
   }
 }
 
@@ -67,16 +87,14 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1_000_000_000).toFixed(2)} GB`
 }
 
-type TestState = 'idle' | 'loading' | 'ok' | 'error'
-
 export default function Settings(): React.JSX.Element {
+  const navigate = useNavigate()
+
   // LLM
   const [baseURL, setBaseURL] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('gpt-4o')
   const [apiVersion, setApiVersion] = useState('')
-  const [testState, setTestState] = useState<TestState>('idle')
-  const [testError, setTestError] = useState('')
 
   // Whisper
   const [whisperModel, setWhisperModel] = useState('onnx-community/whisper-large-v3-turbo')
@@ -170,8 +188,9 @@ export default function Settings(): React.JSX.Element {
           setModelPresent(true)
           setModelSize(s.sizeBytes)
         } else {
-          const cached = await checkBrowserCache(whisperModel)
-          setModelPresent(cached)
+          const { present, sizeBytes } = await checkBrowserCache(whisperModel)
+          setModelPresent(present)
+          if (sizeBytes > 0) setModelSize(sizeBytes)
         }
       })
       .catch(console.error)
@@ -183,18 +202,6 @@ export default function Settings(): React.JSX.Element {
       ...(apiKey ? { llmApiKey: apiKey } : {})
     })
     if (apiKey) setApiKey('')
-  }
-
-  async function handleTest(): Promise<void> {
-    setTestState('loading')
-    setTestError('')
-    try {
-      await window.api.testLlmConnection()
-      setTestState('ok')
-    } catch (err) {
-      setTestState('error')
-      setTestError(err instanceof Error ? err.message : String(err))
-    }
   }
 
   async function handleSaveWhisper(): Promise<void> {
@@ -229,7 +236,20 @@ export default function Settings(): React.JSX.Element {
   }
 
   async function handleDeleteModel(): Promise<void> {
+    // Delete from filesystem (no-op if model only lives in browser cache)
     await window.api.deleteModel(whisperModel)
+    // Delete from browser Cache API (where useBrowserCache=true stores files)
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open('briefly-transformers-v2')
+        const keys = await cache.keys()
+        await Promise.all(
+          keys.filter((req) => req.url.includes(whisperModel)).map((req) => cache.delete(req))
+        )
+      } catch {
+        // ignore — cache may already be empty
+      }
+    }
     setModelPresent(false)
     setModelSize(0)
   }
@@ -273,6 +293,10 @@ export default function Settings(): React.JSX.Element {
       setModelPresent(true)
       setDlState('done')
       setDlProgress(100)
+      // Compute size from the browser cache now that download is complete
+      checkBrowserCache(whisperModel).then(({ sizeBytes }) => {
+        if (sizeBytes > 0) setModelSize(sizeBytes)
+      })
 
       const label = WHISPER_MODELS.find((m) => m.id === whisperModel)?.label ?? whisperModel
       window.api.showNotification('Model downloaded', `${label} is ready to use.`)
@@ -335,84 +359,18 @@ export default function Settings(): React.JSX.Element {
         <h2 className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
           LLM Configuration
         </h2>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="baseURL">Base URL</Label>
-            <Input
-              id="baseURL"
-              placeholder="https://api.openai.com/v1"
-              value={baseURL}
-              onChange={(e) => {
-                setBaseURL(e.target.value)
-                setTestState('idle')
-              }}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Azure:{' '}
-              <code>
-                https://&lt;resource&gt;.openai.azure.com/openai/deployments/&lt;model&gt;
-              </code>
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="apiKey">API Key</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              placeholder="Saved in macOS Keychain — paste to update"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="llmModel">Model</Label>
-              <Input
-                id="llmModel"
-                placeholder="gpt-4o"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="apiVersion">
-                API Version <span className="text-muted-foreground">(Azure)</span>
-              </Label>
-              <Input
-                id="apiVersion"
-                placeholder="2025-01-01-preview"
-                value={apiVersion}
-                onChange={(e) => setApiVersion(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={() => void handleSaveLlm()}>Save</Button>
-            <Button
-              variant="outline"
-              onClick={() => void handleTest()}
-              disabled={testState === 'loading'}
-            >
-              {testState === 'loading' && <Loader2 size={13} className="mr-1.5 animate-spin" />}
-              Test Connection
-            </Button>
-            {testState === 'ok' && (
-              <span className="flex items-center gap-1 text-sm text-green-500">
-                <CheckCircle size={13} /> Connected
-              </span>
-            )}
-            {testState === 'error' && (
-              <span className="flex items-center gap-1 text-sm text-destructive" title={testError}>
-                <XCircle size={13} />
-                {testError.length > 60 ? testError.slice(0, 60) + '…' : testError}
-              </span>
-            )}
-          </div>
-        </div>
+        <LlmFields
+          baseURL={baseURL}
+          apiKey={apiKey}
+          model={model}
+          apiVersion={apiVersion}
+          onBaseURLChange={setBaseURL}
+          onApiKeyChange={setApiKey}
+          onModelChange={setModel}
+          onApiVersionChange={setApiVersion}
+          onSave={handleSaveLlm}
+          showSave
+        />
       </section>
 
       <Separator className="mb-8" />
@@ -570,6 +528,25 @@ export default function Settings(): React.JSX.Element {
               onClick={() => setClearOpen(true)}
             >
               Clear all
+            </Button>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Setup wizard</p>
+              <p className="text-[11px] text-muted-foreground">
+                Re-run the first-run onboarding flow.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void window.api.saveSettings({ onboardingComplete: false }).then(() => {
+                  navigate('/onboarding')
+                })
+              }}
+            >
+              Re-run Setup
             </Button>
           </div>
         </div>

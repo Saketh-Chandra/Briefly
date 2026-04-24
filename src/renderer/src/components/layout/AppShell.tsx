@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import TitleBar from './TitleBar'
 import Sidebar from './Sidebar'
@@ -7,6 +7,21 @@ import { useRecording } from '../../contexts/RecordingContext'
 export default function AppShell(): React.JSX.Element {
   const { toggleRecording, startRecording, stopRecording, state } = useRecording()
   const navigate = useNavigate()
+  const [ready, setReady] = useState(false)
+
+  // Redirect to onboarding if first run
+  useEffect(() => {
+    window.api
+      .getSettings()
+      .then((s) => {
+        if (!s.onboardingComplete) {
+          navigate('/onboarding', { replace: true })
+        } else {
+          setReady(true)
+        }
+      })
+      .catch(() => setReady(true)) // on error, show the app
+  }, [navigate])
 
   useEffect(() => {
     return window.api.onToggleRecordingShortcut(() => void toggleRecording())
@@ -32,13 +47,17 @@ export default function AppShell(): React.JSX.Element {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TitleBar />
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
+      {ready && (
+        <>
+          <Sidebar />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <TitleBar />
+            <main className="flex-1 overflow-auto">
+              <Outlet />
+            </main>
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -2,7 +2,56 @@
 
 ## What Has Been Built (all complete, typechecks pass)
 
-### Screenshot UI & Lightbox (latest session)
+### First-Run Onboarding Wizard (latest session)
+
+Full-screen, Raycast-style setup wizard shown to new users before the app shell renders. Completion writes `onboardingComplete: true` to `settings.json`; the wizard never appears again unless re-triggered from Settings.
+
+**Architecture:**
+- `/onboarding` route is a top-level route outside `AppShell` — no sidebar, no TitleBar, pure canvas
+- `AppShell` checks `onboardingComplete` on mount; redirects to `/onboarding` if absent
+- Spring-based step transitions via `motion` package (`AnimatePresence` + `motion.div`, `x: ±44`)
+- Animated progress dots bottom-left (active dot widens with Motion spring); CTA button bottom-right
+- macOS version check on mount via new `platform:os-info` IPC (`os.release()` → Darwin version string); Darwin < 23.2 = macOS < 14.2
+
+**Steps:**
+1. **Welcome** — 88px Instrument Serif wordmark with staggered entrance; amber OS warning if macOS < 14.2
+2. **LLM Setup** — shared `LlmFields` component (Base URL, Model, API Key, Azure API Version) with live connection test; skippable
+3. **Whisper Model** — model selector (Tiny / Base / Large v3 Turbo) with size labels; download with real-time progress bar; checks browser cache on mount; retry on error; skippable
+4. **Permissions** — Screen Recording and Microphone rows; "Open Settings" calls `system:open-screen-recording-settings` IPC → `shell.openExternal` (hardcoded macOS Privacy URL); "Grant" calls `requestMicPermission()`
+5. **Ready** — config summary with status icons (✓ / ○ / ⚠) for LLM, model, and both permissions
+
+**New IPC handlers (`src/main/ipc/settings.ts`):**
+- `platform:os-info` → `{ darwinVersion: string }`
+- `system:open-screen-recording-settings` → `shell.openExternal` (safe fixed URL)
+
+**Preload additions:**
+- `getOsInfo(): Promise<{ darwinVersion: string }>`
+- `openScreenRecordingSettings(): Promise<void>`
+
+**Settings: Re-run Setup**
+- New row in Settings → Storage section
+- Saves `onboardingComplete: false` then navigates to `/onboarding`
+
+**Shared `LlmFields` component**
+- Extracted from `Settings.tsx` into `src/renderer/src/components/LlmFields.tsx`
+- `Settings.tsx` LLM section now uses it; `LlmSetupStep` in the wizard also uses it
+- Props: `baseURL`, `apiKey`, `model`, `apiVersion`, change handlers, optional `onSave`, `showSave` flag
+
+### Pipeline Error Recovery (latest session)
+
+- `failedStage: TranscriptionStage | null` added to `TranscriptionState` — captured from `prev.stage` in the catch block
+- `PipelineStatus` now maps `failedStage` to a specific label: "Model loading failed" / "Transcription failed" / "Summary generation failed" (instead of the previous generic error message)
+- **Retry button** added to the error state in `PipelineStatus` — calls `onRetry` prop; wired to `handleRerun` in `Transcript.tsx`
+
+### Dashboard macOS Version Banner (latest session)
+
+- On Dashboard mount, calls `getOsInfo()` and checks Darwin version
+- If < 23.2 (macOS 14.2), shows a persistent amber banner: *"System audio capture requires macOS 14.2 Sonoma or later. You can still record microphone-only audio."*
+- Same style as the onboarding Welcome screen warning
+
+---
+
+### Screenshot UI & Lightbox
 - **Transcript Page Tab**: A new "Screenshots" tab displays high-res previews (`3840×2160` PNG) with lazy-loading and aspect-video framing.
 - **Lightbox**: Developed a full-screen, `createPortal`-based overlay using a dark-glass macOS aesthetic.
 - **Frameless Window Handlers**: Applied `[-webkit-app-region:drag]` and `[-webkit-app-region:no-drag]` for native frame dragging in the lightbox overlay, accounting for macOS traffic light placement.
@@ -163,10 +212,26 @@ After cleanup, run `npm run typecheck` to confirm 0 errors.
 
 | File | Key Change |
 |------|-----------|
-| `src/renderer/src/pages/Transcript.tsx` | Added Screenshots tab, full-screen lightbox, Info HUD, copy/download buttons, macOS drag regions |
-| `src/renderer/src/assets/main.css` | Lightbox specific animations (`lightboxEnter`, `lightboxFadeIn`) |
-| `src/main/ipc/storage.ts` | Added `storage:read-screenshot` and `clipboard:write-image` IPC handlers |
-| `src/preload/index.ts` / `index.d.ts` | Expose `readScreenshot` and `writeImageToClipboard` |
+| `src/main/lib/types.ts` | `onboardingComplete?: boolean` added to `AppSettings` |
+| `src/main/ipc/settings.ts` | `platform:os-info` + `system:open-screen-recording-settings` IPC handlers |
+| `src/preload/index.ts` | Expose `getOsInfo()`, `openScreenRecordingSettings()` |
+| `src/preload/index.d.ts` | Type declarations for new preload methods |
+| `src/renderer/src/App.tsx` | `/onboarding` top-level route added outside `AppShell` |
+| `src/renderer/src/components/layout/AppShell.tsx` | On-mount check → redirect to `/onboarding` if `!onboardingComplete` |
+| `src/renderer/src/pages/Onboarding.tsx` | NEW — wizard container (step state, spring transitions, completion handler) |
+| `src/renderer/src/components/LlmFields.tsx` | NEW — shared LLM config fields component |
+| `src/renderer/src/components/onboarding/WelcomeStep.tsx` | NEW — Step 1 |
+| `src/renderer/src/components/onboarding/LlmSetupStep.tsx` | NEW — Step 2 |
+| `src/renderer/src/components/onboarding/WhisperSetupStep.tsx` | NEW — Step 3 |
+| `src/renderer/src/components/onboarding/PermissionsStep.tsx` | NEW — Step 4 |
+| `src/renderer/src/components/onboarding/ReadyStep.tsx` | NEW — Step 5 |
+| `src/renderer/src/pages/Settings.tsx` | LLM section → `LlmFields`; Re-run Setup row added to Storage section |
+| `src/renderer/src/atoms/transcription.ts` | `failedStage` field added to `TranscriptionState` |
+| `src/renderer/src/components/PipelineStatus.tsx` | Per-step error label + Retry button |
+| `src/renderer/src/pages/Transcript.tsx` | Pass `failedStage` + `onRetry` to `PipelineStatus` |
+| `src/renderer/src/pages/Dashboard.tsx` | macOS version banner via `getOsInfo()` on mount |
+| `docs/plans/first-run-ux.md` | NEW — full implementation plan with checklist (all items complete) |
+| `package.json` | `motion` added as dependency |
 
 ---
 
@@ -174,22 +239,7 @@ After cleanup, run `npm run typecheck` to confirm 0 errors.
 
 | File | Key Change |
 |------|-----------|
-| `src/renderer/src/atoms/transcription.ts` | Jotai pipeline atom; `msg.message` (not `msg.error`) |
-| `src/renderer/src/atoms/pages.ts` | Meetings/journal list atoms |
-| `src/renderer/src/workers/whisper.worker.ts` | `allowLocalModels=false`; `init` calls `loadModel`; debug logging |
-| `src/renderer/src/pages/Settings.tsx` | Download UI, cancel, advanced HF mirror, test button, notifications |
-| `src/renderer/src/contexts/TranscriptionContext.tsx` | Thin atom wrapper |
-| `src/renderer/src/pages/Dashboard.tsx` | Uses `meetingsAtom` |
-| `src/renderer/src/pages/Recordings.tsx` | Uses `filteredMeetingsAtom` etc. |
-| `src/renderer/src/pages/Journal.tsx` | Uses `journalDateAtom` etc. |
-| `src/renderer/src/components/layout/AppShell.tsx` | `onNavigate` subscription |
-| `src/renderer/index.html` | CSP `connect-src https: blob:` |
-| `src/renderer/src/assets/main.css` | Custom scrollbar |
-| `src/main/lib/notifications.ts` | NEW — all Electron notification helpers |
-| `src/main/lib/types.ts` | `hfEndpoint?: string` in `AppSettings` |
-| `src/main/ipc/settings.ts` | `hf:test-mirror` handler |
-| `src/main/ipc/capture.ts` | notification calls |
-| `src/main/ipc/llm.ts` | notification calls |
-| `src/main/index.ts` | `registerNotificationHandlers()` |
-| `src/preload/index.ts` | `showNotification`, `testMirror`, `onNavigate` |
-| `src/preload/index.d.ts` | Same three types |
+| `src/renderer/src/pages/Transcript.tsx` | Added Screenshots tab, full-screen lightbox, Info HUD, copy/download buttons, macOS drag regions |
+| `src/renderer/src/assets/main.css` | Lightbox specific animations (`lightboxEnter`, `lightboxFadeIn`) |
+| `src/main/ipc/storage.ts` | Added `storage:read-screenshot` and `clipboard:write-image` IPC handlers |
+| `src/preload/index.ts` / `index.d.ts` | Expose `readScreenshot` and `writeImageToClipboard` |

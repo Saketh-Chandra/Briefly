@@ -1,4 +1,5 @@
-import { ipcMain, net } from 'electron'
+import { ipcMain, net, shell } from 'electron'
+import { release } from 'os'
 import { getSettings, saveSettings } from '../lib/settings'
 import { getApiKey, setApiKey } from '../lib/keychain'
 import { applyProxy } from '../lib/proxy'
@@ -44,6 +45,17 @@ export function registerSettingsHandlers(): void {
       }
     }
   )
+
+  ipcMain.handle('platform:os-info', () => {
+    return { darwinVersion: release() }
+  })
+
+  // Open macOS Screen Recording privacy settings (no user-supplied URL — fixed target)
+  ipcMain.handle('system:open-screen-recording-settings', async () => {
+    await shell.openExternal(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+    )
+  })
 }
 
 // Internal helper — used only from main process (Phase 2 LLM client), not exposed to renderer

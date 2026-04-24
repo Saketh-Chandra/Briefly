@@ -9,13 +9,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- **Screenshot Gallery & Lightbox**: 
-  - Added new "Screenshots" tab in the Transcript view for captured meeting screen grabs.
-  - Implemented a full-screen, native-feeling image lightbox with thumbnail filmstrip.
-  - Added keyboard shortcuts for navigating screenshots (Left/Right/Escape).
-  - Info panel with resolution, capture timestamp, and estimated file size.
-  - One-click copy raw image data directly to macOS clipboard.
-  - Direct download button for high-res PNGs.
+- **First-run onboarding wizard** — full-screen Raycast-style setup flow shown to new users before the app shell renders:
+  - Step 1 — Welcome: 88px Instrument Serif wordmark, tagline, staggered entrance animation, amber OS warning if macOS < 14.2
+  - Step 2 — LLM Setup: shared `LlmFields` component with live connection test; skippable
+  - Step 3 — Whisper Model: model selector with size labels, real-time download progress bar, cache check on mount, retry on error; skippable
+  - Step 4 — Permissions: Screen Recording and Microphone rows with grant actions; "Open Settings" deep-links to macOS Privacy panel
+  - Step 5 — Ready: config summary (LLM / model / permissions) with status icons
+- Progress dots (bottom-left) animate with Motion spring; active dot widens; CTA button (bottom-right)
+- `motion` package added for spring-based step transitions (`AnimatePresence` + `motion.div`)
+- `onboardingComplete?: boolean` added to `AppSettings` — saved to `settings.json` on wizard completion
+- `platform:os-info` IPC handler — returns `{ darwinVersion: string }` from `os.release()`
+- `system:open-screen-recording-settings` IPC handler — calls `shell.openExternal` with hardcoded macOS privacy URL
+- `getOsInfo()` and `openScreenRecordingSettings()` exposed via `contextBridge`
+- **Re-run setup** option in Settings → Storage section — saves `onboardingComplete: false` then navigates to `/onboarding`
+- **Pipeline error recovery**: `PipelineStatus` now shows which step failed ("Model loading failed" / "Transcription failed" / "Summary generation failed") and a **Retry** button that calls `handleRerun`
+- `failedStage: TranscriptionStage | null` added to `TranscriptionState` — captured from `prev.stage` at the point of failure
+- **Dashboard macOS version banner** — persistent amber warning shown if Darwin version < 23.2 (macOS 14.2), matching onboarding style
+- **Shared `LlmFields` component** (`src/renderer/src/components/LlmFields.tsx`) extracted from `Settings.tsx`; used in both wizard and Settings page
+
+### Changed
+- `AppShell` now checks `onboardingComplete` on mount; redirects to `/onboarding` if not set
+- `Settings.tsx` LLM section refactored to use shared `LlmFields` component
+- `/onboarding` added as a top-level route outside `AppShell` (no sidebar / titlebar)
+
+### Screenshot Gallery & Lightbox
+- Added new "Screenshots" tab in the Transcript view for captured meeting screen grabs.
+- Implemented a full-screen, native-feeling image lightbox with thumbnail filmstrip.
+- Added keyboard shortcuts for navigating screenshots (Left/Right/Escape).
+- Info panel with resolution, capture timestamp, and estimated file size.
+- One-click copy raw image data directly to macOS clipboard.
+- Direct download button for high-res PNGs.
 
 ### Changed
 - `README.md` and `docs/context.md` fully rewritten to reflect current architecture (no Swift binary, macOS 14.2+ requirement, `bun` for dependencies, `npm` for scripts)
