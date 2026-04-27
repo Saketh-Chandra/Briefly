@@ -1,6 +1,6 @@
-import { ipcMain, app, desktopCapturer, systemPreferences, BrowserWindow } from 'electron'
+import { ipcMain, app, desktopCapturer, systemPreferences, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
-import { mkdirSync, appendFileSync, writeFileSync } from 'fs'
+import { mkdirSync, appendFileSync, writeFileSync, copyFileSync } from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import {
   insertMeeting,
@@ -127,6 +127,45 @@ export function registerCaptureHandlers(): void {
     activeSessionId = null
     updateTrayState(false, _getWindow)
   })
+
+  // ── Audio file import ───────────────────────────────────────────────────────
+  // Opens a native file picker, copies the chosen audio file into the recordings
+  // directory, and creates a DB row with status 'recorded' so the full
+  // transcription + LLM pipeline can start immediately.
+  ipcMain.handle(
+    'capture:import-audio',
+    async (): Promise<{ meetingId: number; audioPath: string } | null> => {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: 'Import Audio File',
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Audio Files',
+            extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm', 'mp4']
+          }
+        ]
+      })
+
+      if (canceled || filePaths.length === 0) return null
+
+      // Never trust a renderer-supplied path — this path comes from the OS dialog
+      const sourcePath = filePaths[0]
+      const sessionId = uuidv4()
+      const sessionDir = join(app.getPath('userData'), 'recordings', sessionId)
+      mkdirSync(sessionDir, { recursive: true })
+
+      const ext = sourcePath.split('.').pop() ?? 'audio'
+      const audioPath = join(sessionDir, `audio.${ext}`)
+      copyFileSync(sourcePath, audioPath)
+
+      const now = new Date().toISOString()
+      const meetingId = insertMeeting({ sessionId, audioPath, date: now })
+      // Skip 'recording' — the file is already complete
+      updateMeetingStatus(meetingId, 'recorded')
+
+      return { meetingId, audioPath }
+    }
+  )
 
   // ── Screenshots ────────────────────────────────────────────────────────────
   // Uses desktopCapturer.getSources with a high-res thumbnailSize to capture the

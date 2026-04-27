@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Import audio file** — "import an audio file" button on the Dashboard opens a native file picker (supports mp3, wav, m4a, aac, ogg, flac, webm, mp4). The chosen file is copied into the recordings directory and immediately enters the same transcription + LLM pipeline as a live recording.
+- `capture:import-audio` IPC handler in the main process; `importAudioFile()` exposed via `contextBridge`.
+
+---
+
+### Added (previous unreleased)
 - **First-run onboarding wizard** — full-screen Raycast-style setup flow shown to new users before the app shell renders:
   - Step 1 — Welcome: 88px Instrument Serif wordmark, tagline, staggered entrance animation, amber OS warning if macOS < 14.2
   - Step 2 — LLM Setup: shared `LlmFields` component with live connection test; skippable

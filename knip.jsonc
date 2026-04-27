@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "entry": [
+    "electron.vite.config.ts",
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx"
+  ],
+  "project": [
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/renderer/src/**/*.{ts,tsx,css}"
+  ],
+  "ignoreFiles": [
+    "src/preload/index.d.ts",
+    "src/renderer/src/env.d.ts"
+  ],
+  "treatConfigHintsAsErrors": true
+}

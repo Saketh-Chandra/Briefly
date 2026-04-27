@@ -38,6 +38,9 @@ const api = {
 
   takeScreenshot: (): Promise<string | null> => ipcRenderer.invoke('capture:screenshot-save'),
 
+  importAudioFile: (): Promise<{ meetingId: number; audioPath: string } | null> =>
+    ipcRenderer.invoke('capture:import-audio'),
+
   // Subscribe to real-time events from the renderer CaptureSession.
   // Events travel via BroadcastChannel (no round-trip through main process).
   // Returns an unsubscribe function — call it in useEffect cleanup.

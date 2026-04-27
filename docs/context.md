@@ -12,9 +12,23 @@ Briefly is a macOS Electron desktop app that:
 
 ---
 
+## Repo Tooling
+
+- [../knip.jsonc](../knip.jsonc) configures Knip with explicit Electron-Vite entrypoints:
+  [../electron.vite.config.ts](../electron.vite.config.ts), [../src/main/index.ts](../src/main/index.ts),
+  [../src/preload/index.ts](../src/preload/index.ts), and [../src/renderer/src/main.tsx](../src/renderer/src/main.tsx).
+- Run `bunx knip --include files` to audit unused source files without treating Electron-Vite
+  bootstrap files as dead code.
+- Ambient declaration files [../src/preload/index.d.ts](../src/preload/index.d.ts) and
+  [../src/renderer/src/env.d.ts](../src/renderer/src/env.d.ts) remain part of the project, but are
+  excluded from Knip's `unused files` report because they are type-only entry surfaces.
+
+---
+
 ## Directory Structure
 
 ```
+knip.jsonc           ← Knip config with explicit Electron-Vite entrypoints
 src/
   main/               ← Electron main process (Node.js)
     index.ts          ← entry, window creation, IPC registration, deep links, tray, global shortcut

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isToday, parseISO } from 'date-fns'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Upload } from 'lucide-react'
 import RecordButton from '../components/RecordButton'
 import MeetingCard from '../components/MeetingCard'
 import { liveMeetingsAtom, loadMeetingsAtom } from '../atoms/pages'
@@ -44,6 +44,13 @@ export default function Dashboard(): React.JSX.Element {
     return unsub
   }, [loadMeetings])
 
+  async function handleImport(): Promise<void> {
+    const result = await window.api.importAudioFile()
+    if (result) {
+      navigate(`/recordings/${result.meetingId}`)
+    }
+  }
+
   async function handleDelete(id: number): Promise<void> {
     if (!window.confirm('Delete this recording?')) return
     await window.api.deleteMeeting(id)
@@ -77,6 +84,13 @@ export default function Dashboard(): React.JSX.Element {
             ⌘⇧R
           </kbd>
         </p>
+        <button
+          onClick={() => void handleImport()}
+          className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground/50 transition-colors hover:text-muted-foreground/80"
+        >
+          <Upload size={11} />
+          import an audio file
+        </button>
       </section>
 
       {/* Today */}

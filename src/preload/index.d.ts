@@ -24,6 +24,7 @@ declare global {
       writeAudioChunk: (sessionId: string, chunk: ArrayBuffer) => Promise<void>
       finalizeRecording: (sessionId: string, durationS: number) => Promise<void>
       takeScreenshot: () => Promise<string | null>
+      importAudioFile: () => Promise<{ meetingId: number; audioPath: string } | null>
       onCaptureEvent: (cb: (event: CaptureEvent) => void) => () => void
 
       // Storage
