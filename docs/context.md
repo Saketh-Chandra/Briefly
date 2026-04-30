@@ -44,7 +44,7 @@ src/
       llm-client.ts   ← OpenAI-compatible LLM client (map-reduce for long transcripts)
       notifications.ts← Electron Notification helpers (main-process only)
       proxy.ts        ← Electron session proxy configuration
-      schema.ts       ← Drizzle schema (meetings, transcripts, summaries, screenshots)
+      schema.ts       ← Drizzle schema (meetings, transcripts, summaries, screenshots); summaries stores: summary, key_decisions, participants (JSON arrays), todos, journal; search_index FTS5 virtual table created in getDb() (outside Drizzle schema)
       settings.ts     ← read/write JSON settings file
       tray.ts         ← macOS menu bar Tray with dynamic context menu
       types.ts        ← shared TS types (Meeting, AppSettings, CaptureEvent, etc.)
@@ -63,7 +63,7 @@ src/
       atoms/
         recording.ts  ← recording state (start/stop/status)
         transcription.ts ← full pipeline atom (model load → transcribe → LLM)
-        pages.ts      ← meetingsAtom, liveMeetingsAtom, filteredMeetingsAtom, journal atoms
+        pages.ts      ← meetingsAtom, liveMeetingsAtom, filteredMeetingsAtom, searchTermAtom, searchResultsAtom, isSearchingAtom, runSearchAtom, journal atoms
       components/
         layout/
           AppShell.tsx  ← sidebar nav + onNavigate + tray/shortcut subscriptions
@@ -99,7 +99,7 @@ recording → recorded → transcribing → transcribed → processing → done
                                         error
 ```
 
-`resetForReprocessing` deletes the transcript and summary rows and sets the meeting back to `recorded` so the full pipeline can re-run cleanly.
+`resetForReprocessing` deletes the transcript and summary rows, clears `search_index` rows for the meeting, and sets the meeting back to `recorded` so the full pipeline can re-run cleanly.
 
 ---
 
@@ -125,6 +125,7 @@ recording → recorded → transcribing → transcribed → processing → done
 | `getMeetings()` | `storage:get-meetings` | |
 | `getMeeting(id)` | `storage:get-meeting` | Includes transcript + summary |
 | `getMeetingsByDate(date)` | `storage:get-meetings-by-date` | ISO date string |
+| `searchMeetings(query)` | `storage:search` | FTS5 BM25 search across transcript, summary, decisions, journal + title LIKE; returns up to 50 `Meeting` rows ranked by relevance |
 | `deleteMeeting(id)` | `storage:delete-meeting` | Deletes audio file too |
 | `saveTranscript(params)` | `storage:save-transcript` | Idempotent; deletes old row first |
 | `getTranscript(id)` | `storage:get-transcript` | |
@@ -150,7 +151,7 @@ recording → recorded → transcribing → transcribed → processing → done
 
 | Method | Channel | Notes |
 |--------|---------|-------|
-| `processTranscript(id)` | `llm:process` | Map-reduce for transcripts > 8000 chars |
+| `processTranscript(id)` | `llm:process` | Produces title, summary, key decisions, participants, todos, journal; map-reduce for transcripts > 8000 chars |
 | `testLlmConnection()` | `llm:test-connection` | |
 | `onLlmProgress(cb)` | `llm:progress` (listen) | `{ meetingId, step, total, label }` |
 | `onLlmDone(cb)` | `llm:done` (listen) | `{ meetingId }` |
@@ -251,7 +252,45 @@ export const liveMeetingsAtom = atom((get) => {
 
 ---
 
-## Background Pipeline
+## Search Index Architecture (`src/main/lib/db.ts`)
+
+Briefly uses a **standalone FTS5 virtual table** (`search_index`) decoupled from the source table schema — no triggers, no `content=` content table coupling.
+
+```sql
+CREATE VIRTUAL TABLE search_index
+USING fts5(meeting_id UNINDEXED, source UNINDEXED, content, tokenize='unicode61')
+```
+
+**Why standalone (not a content table):** allows the `transcripts` schema to evolve freely without breaking the FTS index. Triggers would need manual maintenance on every column rename.
+
+**Write path — explicit app-level calls:**
+
+| Call site | source value | Content written |
+|---|---|---|
+| `insertTranscript()` | `'transcript'` | Full Whisper transcript text |
+| `insertSummary()` | `'summary'` | LLM summary paragraph |
+| `insertSummary()` | `'decisions'` | Key decisions joined as plain text |
+| `insertSummary()` | `'journal'` | Journal entry text |
+| `resetMeetingForReprocessing()` | — | Deletes all rows for meeting |
+
+Meeting titles are **not** stored in `search_index` — they are searched via `LIKE` on the `meetings` table directly and boosted to rank first (score −999 vs BM25 for content).
+
+**Backfill:** `rebuildSearchIndex()` is called once in `getDb()` on first boot after migration. It is a no-op if `search_index` already has rows.
+
+**Adding new content types:** call `indexForSearch(meetingId, 'newSource', text)` from the relevant write function — no migration or schema change needed.
+
+---
+
+## Recordings Search (renderer)
+
+- `searchTermAtom` — current query string
+- `isSearchingAtom` — true while IPC call is in flight
+- `searchResultsAtom` — `Meeting[] | null` from last completed FTS call
+- `runSearchAtom` — write atom: sets `isSearchingAtom`, calls `window.api.searchMeetings(query)`, stores results
+- `filteredMeetingsAtom` — uses FTS results when available; falls back to title-only `.includes()` while in flight
+- `MeetingList` `flat` prop — when `true`, renders results in array order (preserves BM25 rank) without date grouping; date shown inline per row
+
+---
 
 The transcription + LLM pipeline is designed to survive page navigation:
 

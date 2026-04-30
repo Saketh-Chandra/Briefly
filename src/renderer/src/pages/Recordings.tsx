@@ -5,20 +5,29 @@ import FilterBar from '../components/FilterBar'
 import MeetingList from '../components/MeetingList'
 import {
   loadMeetingsAtom,
-  searchTermAtom,
+  runSearchAtom,
   statusFilterAtom,
-  filteredMeetingsAtom
+  filteredMeetingsAtom,
+  searchResultsAtom,
+  searchTermAtom,
+  isSearchingAtom
 } from '../atoms/pages'
 
 export default function Recordings(): React.JSX.Element {
   const loadMeetings = useSetAtom(loadMeetingsAtom)
   const filtered = useAtomValue(filteredMeetingsAtom)
-  const setSearchTerm = useSetAtom(searchTermAtom)
+  const runSearch = useSetAtom(runSearchAtom)
+  const setSearchResults = useSetAtom(searchResultsAtom)
   const [statusFilter, setStatusFilter] = useAtom(statusFilterAtom)
+  const searchTerm = useAtomValue(searchTermAtom)
+  const isSearching = useAtomValue(isSearchingAtom)
+  const searchResults = useAtomValue(searchResultsAtom)
 
   useEffect(() => {
     void loadMeetings()
-  }, [loadMeetings])
+    // Clear stale search results when the meetings list reloads
+    setSearchResults(null)
+  }, [loadMeetings, setSearchResults])
 
   // Reload when a recording saves
   useEffect(() => {
@@ -50,11 +59,21 @@ export default function Recordings(): React.JSX.Element {
       <h1 className="mb-6 font-display text-2xl italic text-foreground/80">Recordings</h1>
 
       <div className="mb-5 flex flex-col gap-3">
-        <SearchBar onSearch={setSearchTerm} />
+        <SearchBar onSearch={(q) => void runSearch(q)} />
         <FilterBar active={statusFilter} onChange={setStatusFilter} />
       </div>
 
-      <MeetingList meetings={filtered} onDelete={handleDelete} />
+      {searchTerm && (
+        <p className="mb-3 text-[11px] text-muted-foreground/60">
+          {searchResults !== null
+            ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${searchTerm}"${isSearching ? '…' : ''}`
+            : isSearching
+              ? 'Searching…'
+              : null}
+        </p>
+      )}
+
+      <MeetingList meetings={filtered} onDelete={handleDelete} flat={!!searchTerm} />
     </div>
   )
 }

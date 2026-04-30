@@ -45,16 +45,75 @@ export const searchTermAtom = atom<string>('')
 /** Status filter pill selection for the Recordings page. */
 export const statusFilterAtom = atom<MeetingStatus | null>(null)
 
-/** Meetings filtered by statusFilterAtom and searchTermAtom — derived, no async. */
+/**
+ * Results from the FTS search IPC call. null means no search is active
+ * (empty query or results not yet returned).
+ */
+export const searchResultsAtom = atom<Meeting[] | null>(null)
+
+/** True while the FTS IPC call is in flight. */
+export const isSearchingAtom = atom<boolean>(false)
+
+/**
+ * Async write atom: sets the search term, triggers the FTS IPC call,
+ * and stores the results. Pass an empty string to clear the search.
+ */
+export const runSearchAtom = atom(null, async (_get, set, query: string): Promise<void> => {
+  set(searchTermAtom, query)
+  if (!query.trim()) {
+    set(searchResultsAtom, null)
+    set(isSearchingAtom, false)
+    return
+  }
+  set(isSearchingAtom, true)
+  const results = await window.api.searchMeetings(query)
+  set(searchResultsAtom, results)
+  set(isSearchingAtom, false)
+})
+
+/**
+ * Meetings filtered by statusFilterAtom and searchTermAtom.
+ * When a search is active and results have returned, uses FTS results
+ * (with live pipeline status overlaid). Falls back to title-only filter
+ * while the search IPC call is in flight.
+ */
 export const filteredMeetingsAtom = atom((get) => {
-  let result = get(liveMeetingsAtom)
   const statusFilter = get(statusFilterAtom)
   const searchTerm = get(searchTermAtom)
-  if (statusFilter) result = result.filter((m) => m.status === statusFilter)
-  if (searchTerm) {
-    const lower = searchTerm.toLowerCase()
-    result = result.filter((m) => (m.title ?? '').toLowerCase().includes(lower))
+  const searchResults = get(searchResultsAtom)
+  const txState = get(transcriptionAtom)
+
+  // Compute live status overlay helper (mirrors liveMeetingsAtom logic)
+  function withLiveOverlay(list: Meeting[]): Meeting[] {
+    if (txState.meetingId === null || txState.stage === 'idle' || txState.stage === 'done') {
+      return list
+    }
+    const liveStatus: MeetingStatus =
+      txState.stage === 'processing-llm'
+        ? 'processing'
+        : txState.stage === 'error'
+          ? 'error'
+          : 'transcribing'
+    return list.map((m) => (m.id === txState.meetingId ? { ...m, status: liveStatus } : m))
   }
+
+  let result: Meeting[]
+  if (searchTerm) {
+    if (searchResults !== null) {
+      // FTS results are back — use them with live overlay
+      result = withLiveOverlay(searchResults)
+    } else {
+      // Still loading — title-only fallback so the list isn't blank
+      const lower = searchTerm.toLowerCase()
+      result = withLiveOverlay(get(meetingsAtom)).filter((m) =>
+        (m.title ?? '').toLowerCase().includes(lower)
+      )
+    }
+  } else {
+    result = get(liveMeetingsAtom)
+  }
+
+  if (statusFilter) result = result.filter((m) => m.status === statusFilter)
   return result
 })
 

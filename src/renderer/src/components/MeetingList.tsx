@@ -9,6 +9,8 @@ import type { Meeting } from '../../../main/lib/types'
 interface MeetingListProps {
   meetings: Meeting[]
   onDelete: (id: number) => void
+  /** When true, renders a flat ordered list without date grouping (used for search results). */
+  flat?: boolean
 }
 
 function dateLabel(dateStr: string): string {
@@ -25,10 +27,11 @@ function formatDuration(s: number | null): string {
   return m > 0 ? `${m}m ${sec}s` : `${sec}s`
 }
 
-export default function MeetingList({ meetings, onDelete }: MeetingListProps): React.JSX.Element {
+export default function MeetingList({ meetings, onDelete, flat = false }: MeetingListProps): React.JSX.Element {
   const navigate = useNavigate()
 
   const groups = useMemo(() => {
+    if (flat) return null
     const map = new Map<string, Meeting[]>()
     for (const m of meetings) {
       const key = m.date.slice(0, 10)
@@ -36,7 +39,7 @@ export default function MeetingList({ meetings, onDelete }: MeetingListProps): R
       map.get(key)!.push(m)
     }
     return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
-  }, [meetings])
+  }, [meetings, flat])
 
   if (meetings.length === 0) {
     return (
@@ -48,46 +51,71 @@ export default function MeetingList({ meetings, onDelete }: MeetingListProps): R
 
   return (
     <div className="flex flex-col gap-6">
-      {groups.map(([dateKey, items]) => (
-        <section key={dateKey}>
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-            {dateLabel(items[0].date)}
-          </h3>
-          <div className="overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60">
-            {items.map((m) => (
-              <div
-                key={m.id}
-                className="flex cursor-pointer items-center gap-3 bg-card/40 px-4 py-3 transition-colors hover:bg-accent/30"
-                onClick={() => navigate(`/recordings/${m.id}`)}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {m.title ?? 'Untitled Meeting'}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    {format(parseISO(m.date), 'h:mm a')}
-                    {' · '}
-                    {formatDuration(m.duration_s)}
-                  </p>
-                </div>
-                <StatusBadge status={m.status} />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(m.id)
-                  }}
-                >
-                  <Trash2 size={13} />
-                </Button>
-                <ChevronRight size={13} className="shrink-0 text-muted-foreground/50" />
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+      {flat ? (
+        <div className="overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60">
+          {meetings.map((m) => (
+            <MeetingRow key={m.id} m={m} onDelete={onDelete} navigate={navigate} showDate />
+          ))}
+        </div>
+      ) : (
+        groups!.map(([dateKey, items]) => (
+          <section key={dateKey}>
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              {dateLabel(items[0].date)}
+            </h3>
+            <div className="overflow-hidden rounded-lg border border-border/60 divide-y divide-border/60">
+              {items.map((m) => (
+                <MeetingRow key={m.id} m={m} onDelete={onDelete} navigate={navigate} />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+    </div>
+  )
+}
+
+function MeetingRow({
+  m,
+  onDelete,
+  navigate,
+  showDate = false
+}: {
+  m: Meeting
+  onDelete: (id: number) => void
+  navigate: (path: string) => void
+  showDate?: boolean
+}): React.JSX.Element {
+  return (
+    <div
+      className="flex cursor-pointer items-center gap-3 bg-card/40 px-4 py-3 transition-colors hover:bg-accent/30"
+      onClick={() => navigate(`/recordings/${m.id}`)}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {m.title ?? 'Untitled Meeting'}
+        </p>
+        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+          {showDate
+            ? format(parseISO(m.date), 'MMM d · h:mm a')
+            : format(parseISO(m.date), 'h:mm a')}
+          {' · '}
+          {formatDuration(m.duration_s)}
+        </p>
+      </div>
+      <StatusBadge status={m.status} />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete(m.id)
+        }}
+      >
+        <Trash2 size={13} />
+      </Button>
+      <ChevronRight size={13} className="shrink-0 text-muted-foreground/50" />
     </div>
   )
 }

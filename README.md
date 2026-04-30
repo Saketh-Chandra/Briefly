@@ -9,8 +9,9 @@ Under active development. The end-to-end pipeline is working:
 - System audio + microphone capture via Electron `desktopCapturer` and the Web Audio API
 - Renderer UI: Dashboard, Recordings, Transcript, Journal, and Settings pages
 - Local Whisper model download and transcription in a Web Worker (runs in the background — safe to navigate away)
-- OpenAI-compatible LLM processing for titles, summaries, to-dos, and journal entries
-- SQLite-backed meeting storage, Electron notifications, macOS menu bar tray
+- OpenAI-compatible LLM processing for titles, summaries, key decisions, participants, to-dos, and journal entries
+- SQLite-backed meeting storage with full-text search (FTS5/BM25) across transcripts, summaries, decisions, and journal entries
+- Electron notifications, macOS menu bar tray
 - Keyboard shortcut (`⌘⇧R`) and deep link (`briefly://`) support
 - Re-run pipeline from any finished or errored state
 
@@ -24,9 +25,10 @@ For the latest implementation snapshot see [docs/current-state.md](docs/current-
 2. Saves audio locally as WebM/Opus chunks streamed to disk in real time.
 3. Downloads and caches a Whisper ONNX model locally on first use.
 4. Transcribes the recording locally in a Web Worker — no audio leaves the machine.
-5. Calls a user-configured OpenAI-compatible LLM endpoint to produce a title, summary, to-do list, and journal entry.
+5. Calls a user-configured OpenAI-compatible LLM endpoint to produce a title, summary, key decisions, participants list, to-dos, and journal entry.
 6. Presents all meetings, transcripts, and the daily journal in the desktop UI.
-7. Supports re-running the full pipeline (transcription + LLM) on any past recording.
+7. Full-text search across all past meetings (transcripts, summaries, key decisions, journal entries) ranked by BM25 relevance.
+8. Supports re-running the full pipeline (transcription + LLM) on any past recording.
 
 ---
 
@@ -187,6 +189,7 @@ All channels are invoked via `window.api.*` from the renderer (typed in `src/pre
 | `getMeetings()` | `storage:get-meetings` | All meetings |
 | `getMeeting(id)` | `storage:get-meeting` | Single meeting with transcript + summary |
 | `getMeetingsByDate(date)` | `storage:get-meetings-by-date` | Meetings for a given ISO date |
+| `searchMeetings(query)` | `storage:search` | FTS5 BM25 search across transcript, summary, decisions, journal + title; up to 50 results ranked by relevance |
 | `deleteMeeting(id)` | `storage:delete-meeting` | Delete meeting + audio file |
 | `saveTranscript(params)` | `storage:save-transcript` | Persist Whisper output, set status `transcribed` |
 | `getTranscript(id)` | `storage:get-transcript` | Fetch transcript for a meeting |
@@ -212,7 +215,7 @@ All channels are invoked via `window.api.*` from the renderer (typed in `src/pre
 
 | `window.api` method | IPC channel | Description |
 | --- | --- | --- |
-| `processTranscript(id)` | `llm:process` | Run summary + todos + journal pipeline |
+| `processTranscript(id)` | `llm:process` | Run summary + key decisions + participants + todos + journal pipeline |
 | `testLlmConnection()` | `llm:test-connection` | Ping the configured LLM endpoint |
 | `onLlmProgress(cb)` | `llm:progress` (listen) | Step events `{ meetingId, step, label }` |
 | `onLlmDone(cb)` | `llm:done` (listen) | Completion event `{ meetingId }` |
@@ -271,7 +274,7 @@ Renderer (React)
     → IPC → Main: transcription:start   (validate meeting + audio)
     → whisper.worker.ts: load ONNX model → transcribe PCM → chunks
     → IPC → Main: storage:save-transcript  (status → 'transcribed')
-    → IPC → Main: llm:process           (title + summary + todos + journal)
+    → IPC → Main: llm:process           (title + summary + key_decisions + participants + todos + journal)
     → IPC → Main: storage:insert-summary   (status → 'done')
 
   liveMeetingsAtom (derived — overlays live pipeline stage on DB data)

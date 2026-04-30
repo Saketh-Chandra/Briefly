@@ -150,6 +150,9 @@ const api = {
   getMeetingsByDate: (date: string): Promise<import('../main/lib/types').Meeting[]> =>
     ipcRenderer.invoke('storage:get-meetings-by-date', date),
 
+  searchMeetings: (query: string): Promise<import('../main/lib/types').Meeting[]> =>
+    ipcRenderer.invoke('storage:search', query),
+
   getModelStatus: (modelId: string): Promise<{ present: boolean; sizeBytes: number }> =>
     ipcRenderer.invoke('transcription:model-status', modelId),
 

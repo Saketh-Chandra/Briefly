@@ -12,21 +12,96 @@ import type { MeetingDetail, MeetingStatus } from './types'
 type DrizzleDb = ReturnType<typeof drizzle>
 
 let _db: DrizzleDb | null = null
+let _sqlite: InstanceType<typeof Database> | null = null
 
 export function getDb(): DrizzleDb {
   if (!_db) {
     const dbPath = join(app.getPath('userData'), 'briefly.db')
-    const sqlite = new Database(dbPath)
-    sqlite.pragma('journal_mode = WAL')
-    sqlite.pragma('foreign_keys = ON')
-    _db = drizzle(sqlite, { schema: { meetings, transcripts, summaries, screenshots } })
+    _sqlite = new Database(dbPath)
+    _sqlite.pragma('journal_mode = WAL')
+    _sqlite.pragma('foreign_keys = ON')
+    _db = drizzle(_sqlite, { schema: { meetings, transcripts, summaries, screenshots } })
     // Resolve migrations folder: dev = repo root, prod = asar-unpacked resources
     const migrationsFolder = is.dev
       ? join(__dirname, '../../drizzle')
       : join(process.resourcesPath, 'drizzle')
     migrate(_db, { migrationsFolder })
+    // Ensure the FTS5 search index exists — CREATE VIRTUAL TABLE is outside Drizzle's
+    // model so we guarantee it here with IF NOT EXISTS regardless of migration state.
+    _sqlite.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS search_index
+      USING fts5(meeting_id UNINDEXED, source UNINDEXED, content, tokenize='unicode61')
+    `)
+    rebuildSearchIndex()
   }
   return _db
+}
+
+function getRawDb(): InstanceType<typeof Database> {
+  if (!_sqlite) getDb() // ensure initialisation
+  return _sqlite!
+}
+
+// ---------------------------------------------------------------------------
+// Search index helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Write one content row into the standalone FTS5 search index.
+ * source: 'transcript' | 'summary' | 'decisions' | 'journal'
+ */
+function indexForSearch(meetingId: number, source: string, content: string): void {
+  if (!content?.trim()) return
+  getRawDb()
+    .prepare(`INSERT INTO search_index(meeting_id, source, content) VALUES (?, ?, ?)`)
+    .run(meetingId, source, content)
+}
+
+/**
+ * Remove all search_index rows for a meeting (called before re-indexing or
+ * when resetting for reprocessing).
+ */
+function deleteSearchIndex(meetingId: number): void {
+  getRawDb()
+    .prepare(`DELETE FROM search_index WHERE meeting_id = ?`)
+    .run(meetingId)
+}
+
+/**
+ * Backfill the search_index from existing transcripts and summaries.
+ * Only runs when the index is empty (first boot after the migration).
+ */
+function rebuildSearchIndex(): void {
+  const raw = getRawDb()
+  const count = (raw.prepare(`SELECT COUNT(*) AS n FROM search_index`).get() as { n: number }).n
+  if (count > 0) return
+
+  const db = getDb()
+
+  const txRows = db.select({ meeting_id: transcripts.meeting_id, content: transcripts.content })
+    .from(transcripts)
+    .all()
+  for (const row of txRows) {
+    indexForSearch(row.meeting_id, 'transcript', row.content)
+  }
+
+  const sumRows = db
+    .select({
+      meeting_id: summaries.meeting_id,
+      summary: summaries.summary,
+      key_decisions: summaries.key_decisions,
+      journal: summaries.journal
+    })
+    .from(summaries)
+    .all()
+  for (const row of sumRows) {
+    if (row.summary) indexForSearch(row.meeting_id, 'summary', row.summary)
+    if (row.key_decisions) {
+      const decisions = JSON.parse(row.key_decisions) as string[]
+      indexForSearch(row.meeting_id, 'decisions', decisions.join(' '))
+    }
+    if (row.journal) indexForSearch(row.meeting_id, 'journal', row.journal)
+  }
 }
 
 export function insertMeeting(params: {
@@ -152,6 +227,9 @@ export function insertTranscript(params: {
       model: params.model
     })
     .run()
+  // Index transcript content for full-text search
+  deleteSearchIndex(params.meetingId)
+  indexForSearch(params.meetingId, 'transcript', params.content)
   // Also update meeting status to 'transcribed'
   updateMeetingStatus(params.meetingId, 'transcribed')
 }
@@ -163,6 +241,52 @@ export function getMeetingsByDate(dateStr: string): (typeof meetings.$inferSelec
     .where(sql`date(${meetings.date}) = ${dateStr}`)
     .orderBy(meetings.date)
     .all()
+}
+
+/**
+ * Full-text search across all indexed content (transcripts, summaries,
+ * key decisions, journal) and meeting titles.
+ * Uses SQLite FTS5 (BM25) for indexed content; LIKE for titles.
+ * Title matches are always ranked above FTS matches.
+ * Returns up to 50 meeting rows ordered by relevance.
+ */
+export function searchMeetings(query: string): (typeof meetings.$inferSelect)[] {
+  const raw = getRawDb()
+
+  // Build a safe FTS5 prefix query: wrap each word in double-quotes + * for prefix match
+  const terms = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => `"${w.replace(/"/g, '')}"*`)
+    .join(' ')
+
+  if (!terms) return []
+
+  const rows = raw
+    .prepare(
+      `
+      SELECT m.id, m.session_id, m.title, m.date, m.duration_s,
+             m.audio_path, m.status, m.created_at, m.updated_at,
+             MIN(ranked.score) AS best_score
+      FROM (
+        SELECT CAST(si.meeting_id AS INTEGER) AS mid, bm25(search_index) AS score
+        FROM search_index si
+        WHERE search_index MATCH ?
+        UNION ALL
+        SELECT id AS mid, -999.0 AS score
+        FROM meetings
+        WHERE title LIKE ? COLLATE NOCASE
+      ) ranked
+      JOIN meetings m ON m.id = ranked.mid
+      GROUP BY m.id
+      ORDER BY best_score ASC
+      LIMIT 50
+    `
+    )
+    .all(terms, `%${query.trim()}%`)
+
+  return rows as (typeof meetings.$inferSelect)[]
 }
 
 export function updateTodo(meetingId: number, index: number, done: boolean): void {
@@ -190,6 +314,7 @@ export function resetMeetingForReprocessing(meetingId: number): void {
   const db = getDb()
   db.delete(summaries).where(eq(summaries.meeting_id, meetingId)).run()
   db.delete(transcripts).where(eq(transcripts.meeting_id, meetingId)).run()
+  deleteSearchIndex(meetingId)
   db.update(meetings)
     .set({ status: 'recorded', updated_at: sql`(datetime('now'))` })
     .where(eq(meetings.id, meetingId))
@@ -275,6 +400,12 @@ export function insertSummary(params: {
       llm_model: params.llmModel
     })
     .run()
+
+  // Index summary fields for full-text search
+  if (params.summary) indexForSearch(params.meetingId, 'summary', params.summary)
+  if (params.keyDecisions?.length)
+    indexForSearch(params.meetingId, 'decisions', params.keyDecisions.join(' '))
+  if (params.journal) indexForSearch(params.meetingId, 'journal', params.journal)
 
   // Update meeting status to 'done' and optionally set the title
   db.update(meetings)

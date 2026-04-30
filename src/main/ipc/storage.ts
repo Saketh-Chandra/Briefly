@@ -11,7 +11,8 @@ import {
   updateTodo,
   updateJournal,
   resetMeetingForReprocessing,
-  getMeetingsByDate
+  getMeetingsByDate,
+  searchMeetings
 } from '../lib/db'
 
 export function registerStorageHandlers(): void {
@@ -70,6 +71,10 @@ export function registerStorageHandlers(): void {
 
   ipcMain.handle('storage:get-meetings-by-date', (_event, date: string) => {
     return getMeetingsByDate(date)
+  })
+
+  ipcMain.handle('storage:search', (_event, query: string) => {
+    return searchMeetings(query)
   })
 
   ipcMain.handle('storage:read-audio', async (_event, audioPath: string): Promise<ArrayBuffer> => {

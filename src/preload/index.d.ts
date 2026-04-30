@@ -66,6 +66,7 @@ declare global {
         cb: (event: { meetingId: number; status: string; error?: string }) => void
       ) => () => void
       getMeetingsByDate: (date: string) => Promise<Meeting[]>
+      searchMeetings: (query: string) => Promise<Meeting[]>
       getModelStatus: (modelId: string) => Promise<{ present: boolean; sizeBytes: number }>
       deleteModel: (modelId: string) => Promise<void>
       getDiskUsage: () => Promise<{ audioBytes: number; userData: string }>

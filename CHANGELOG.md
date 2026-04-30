@@ -9,6 +9,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Full-text transcript search** — the Recordings search bar now queries all indexed meeting content via SQLite FTS5 (BM25 ranking), not just titles.
+  - Standalone `search_index` FTS5 virtual table (`meeting_id UNINDEXED, source UNINDEXED, content`) added via migration `0002_fts_transcripts.sql`. Decoupled from source table schema — no triggers, no `content=` coupling.
+  - Four content types indexed per meeting: `transcript`, `summary`, `decisions`, `journal`. Meeting titles searched separately via `LIKE` on the `meetings` table and always ranked first (score −999).
+  - `indexForSearch(meetingId, source, content)` and `deleteSearchIndex(meetingId)` helpers in `db.ts` write/remove rows explicitly at the call sites (`insertTranscript`, `insertSummary`, `resetMeetingForReprocessing`).
+  - `rebuildSearchIndex()` backfills the index from existing data on first boot (runs once when the table is empty).
+  - `searchMeetings(query)` in `db.ts` builds a safe per-word FTS5 prefix query (`"word"*`) and returns up to 50 `Meeting` rows ranked by BM25.
+  - `storage:search` IPC handler; `window.api.searchMeetings(query)` exposed via `contextBridge`.
+  - `runSearchAtom` and `isSearchingAtom` added to `atoms/pages.ts`; `filteredMeetingsAtom` uses FTS results when available, falls back to title-only filter while the IPC call is in flight.
+  - `MeetingList` gains a `flat` prop — when active, renders results in relevance order without date grouping (date shown inline per row).
+  - Result count line in `Recordings.tsx` (`"N results for 'query'"`); shows stale count with trailing `…` during re-search to avoid flicker.
+
+### Added
+- **Key decisions & participants display** — the Summary tab now shows two new sections below the summary prose: a **Participants** pill list and a **Key Decisions** bullet list. Both fields were already extracted by the LLM but were previously discarded.
+  - `key_decisions` and `participants` columns added to the `summaries` DB table (migration `0001_grey_silver_surfer.sql`).
+  - `insertSummary` and `getMeetingDetail` updated to persist and return both fields.
+  - `MeetingDetail.summary` type extended with `key_decisions: string[] | null` and `participants: string[] | null`.
+  - `SummaryPanel` component updated to render both sections.
+  - Markdown export includes **Participants** and **Key Decisions** sections.
 - **Import audio file** — "import an audio file" button on the Dashboard opens a native file picker (supports mp3, wav, m4a, aac, ogg, flac, webm, mp4). The chosen file is copied into the recordings directory and immediately enters the same transcription + LLM pipeline as a live recording.
 - `capture:import-audio` IPC handler in the main process; `importAudioFile()` exposed via `contextBridge`.
 
