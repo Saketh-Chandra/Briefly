@@ -85,9 +85,6 @@ async function loadModel(modelId: string): Promise<void> {
         total?: number
         progress?: number
       }) => {
-        if (progress.status === 'initiate') {
-          console.log('[whisper-worker] fetching:', progress.file)
-        }
         // Transformers.js v4 uses 'progress' (not 'downloading'/'loading')
         if (progress.status === 'progress' && progress.file && progress.total) {
           fileBytes.set(progress.file, {
@@ -112,9 +109,6 @@ async function loadModel(modelId: string): Promise<void> {
       }
     })
   } catch (err) {
-    // Log the raw error in full before any transformation
-    console.error('[whisper-worker] loadModel raw error:', err)
-    console.error('[whisper-worker] env.remoteHost at time of error:', env.remoteHost)
     // Transformers.js receives an HTML error page instead of JSON when the
     // endpoint is blocked by a firewall or geo-restriction.
     const msg = err instanceof Error ? err.message : String(err)
@@ -231,50 +225,6 @@ self.addEventListener('message', async (event: MessageEvent<WorkerInMessage>) =>
           configuredHost = null
         }
 
-        // Install a fetch interceptor so every remote request is logged with
-        // its actual URL, status, and content-type — and HTML responses are
-        // surfaced immediately with a body preview before JSON.parse fails.
-        {
-          const underlying = self.fetch.bind(self)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(env as any).fetch = async (
-            input: string | URL,
-            init?: RequestInit
-          ): Promise<Response> => {
-            const urlStr = typeof input === 'string' ? input : (input as URL).href
-            const isRemote = urlStr.startsWith('http')
-            if (isRemote) console.log('[whisper-worker] fetch →', urlStr)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const response = await underlying(input as any, init)
-            if (isRemote) {
-              const ct = response.headers.get('content-type') ?? ''
-              console.log('[whisper-worker] fetch ←', response.status, ct)
-              if (ct.includes('text/html')) {
-                const preview = await response.clone().text()
-                console.error(
-                  '[whisper-worker] ← HTML body (first 500 chars):\n',
-                  preview.slice(0, 500)
-                )
-              }
-            }
-            return response
-          }
-        }
-
-        console.log('[whisper-worker] env after init:', {
-          remoteHost: env.remoteHost,
-          remotePathTemplate: env.remotePathTemplate,
-          cacheDir: env.cacheDir,
-          cacheKey: env.cacheKey,
-          allowRemoteModels: env.allowRemoteModels,
-          allowLocalModels: env.allowLocalModels,
-          useFSCache: env.useFSCache,
-          useBrowserCache: env.useBrowserCache
-        })
-        console.log(
-          '[whisper-worker] first file URL will be:',
-          `${env.remoteHost}${msg.modelId}/resolve/main/config.json`
-        )
         // loadModel emits model_loading progress + model_ready when done
         await loadModel(msg.modelId)
         break
