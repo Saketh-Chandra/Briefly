@@ -241,6 +241,8 @@ export function registerLlmHandlers(getSender: () => WebContents | null): void {
         meetingId,
         summary: summaryResult.summary,
         todos,
+        keyDecisions: summaryResult.key_decisions,
+        participants: summaryResult.participants_mentioned,
         journal,
         llmModel: config.model,
         meetingTitle: summaryResult.title

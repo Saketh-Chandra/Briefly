@@ -49,6 +49,8 @@ export const summaries = sqliteTable('summaries', {
     .references(() => meetings.id, { onDelete: 'cascade' }),
   summary: text('summary'),
   todos: text('todos'),
+  key_decisions: text('key_decisions'),
+  participants: text('participants'),
   journal: text('journal'),
   llm_model: text('llm_model'),
   created_at: text('created_at')

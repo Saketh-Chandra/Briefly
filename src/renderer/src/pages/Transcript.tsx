@@ -136,6 +136,16 @@ export default function Transcript(): React.JSX.Element {
     if (m.summary?.summary) {
       lines.push('## Summary', '', m.summary.summary, '')
     }
+    if (m.summary?.participants && m.summary.participants.length > 0) {
+      lines.push('## Participants', '', m.summary.participants.join(', '), '')
+    }
+    if (m.summary?.key_decisions && m.summary.key_decisions.length > 0) {
+      lines.push('## Key Decisions', '')
+      for (const d of m.summary.key_decisions) {
+        lines.push(`- ${d}`)
+      }
+      lines.push('')
+    }
     if (m.summary?.todos && m.summary.todos.length > 0) {
       lines.push('## Action Items', '')
       for (const t of m.summary.todos) {
@@ -328,7 +338,11 @@ export default function Transcript(): React.JSX.Element {
           </TabsContent>
 
           <TabsContent value="summary" className="overflow-auto p-5">
-            <SummaryPanel summary={meeting.summary?.summary ?? null} />
+            <SummaryPanel
+              summary={meeting.summary?.summary ?? null}
+              keyDecisions={meeting.summary?.key_decisions}
+              participants={meeting.summary?.participants}
+            />
           </TabsContent>
 
           <TabsContent value="todos" className="overflow-auto p-5">

@@ -50,6 +50,8 @@ export interface MeetingDetail extends Meeting {
   summary: {
     summary: string | null
     todos: Todo[] | null
+    key_decisions: string[] | null
+    participants: string[] | null
     journal: string | null
   } | null
   screenshots: { path: string; taken_at: string }[]

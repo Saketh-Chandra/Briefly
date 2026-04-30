@@ -145,7 +145,7 @@ Six bugs in the transcription/re-run flow were identified and fixed:
 - `window.api.onNavigate` + `useNavigate` in AppShell for notification click routing
 
 ### Whisper Worker (`src/renderer/src/workers/whisper.worker.ts`)
-- `allowLocalModels = false` — see "Root Cause" below
+- `allowLocalModels = false` — prevents Vite dev server HTML 404 pages from being parsed as JSON (confirmed fix)
 - `useBrowserCache = false`, `cacheKey = 'briefly-transformers-v2'`
 - Trailing-slash enforcement on `env.remoteHost`
 - `init` message now calls `await loadModel(msg.modelId)` directly (not just env setup)
@@ -160,51 +160,6 @@ Six bugs in the transcription/re-run flow were identified and fixed:
 
 ### CSP (`src/renderer/index.html`)
 - `connect-src 'self' https: blob:` added for worker HTTPS + WASM blob: fetches
-
----
-
-## Root Cause That Was Just Fixed
-
-**Problem:** Model download stuck at 0% with "Unexpected token '<'..." JSON parse error.
-
-**Root cause:** `env.allowLocalModels = true` (was the default). In a Vite dev server context, `localModelPath = '/models/'` resolves to `http://localhost:5174/models/onnx-community/.../config.json`. Vite returns its HTML 404 page. Transformers.js tried that **first** before the remote host. `JSON.parse` on the HTML body fails immediately — the fetch interceptor on `env.fetch` never even fires because the local path check happens before any network call.
-
-**Fix applied:** `env.allowLocalModels = false` in the `case 'init':` block of `whisper.worker.ts`.
-
-**Status:** Fix committed, `npm run typecheck` → 0 errors. **User has NOT yet confirmed download works.** This was the very last action before ending the previous chat.
-
----
-
-## Pending: Validate Download Works
-
-Ask the user to:
-1. Quit the app fully (Cmd+Q, not just reload)
-2. Open Settings → Whisper section
-3. Select a model (Whisper Tiny is fastest to test, ~38 MB)
-4. Click **Download Model**
-5. Confirm the progress bar advances and completes
-
-With `allowLocalModels = false` the fetch interceptor should now log:
-```
-[whisper-worker] fetch → https://hf-mirror.com/onnx-community/whisper-tiny/resolve/main/config.json
-[whisper-worker] fetch ← 200 application/json
-```
-(or `huggingface.co` if no mirror is configured)
-
----
-
-## Pending Cleanup: Remove Debug Logging
-
-Once download is confirmed working, remove from `whisper.worker.ts`:
-
-1. **The entire `env.fetch` interceptor block** (the `const underlying = ...` / `(env as any).fetch = async ...` block inside `case 'init':`)
-2. The `console.log('[whisper-worker] env after init:', {...})` log
-3. The `console.log('[whisper-worker] first file URL will be:', ...)` log
-4. The `console.log('[whisper-worker] fetching:', progress.file)` line in `progress_callback`
-5. The `console.error('[whisper-worker] loadModel raw error:', err)` line in `loadModel`
-6. The `console.error('[whisper-worker] env.remoteHost at time of error:', ...)` line in `loadModel`
-
-After cleanup, run `npm run typecheck` to confirm 0 errors.
 
 ---
 
@@ -232,6 +187,7 @@ After cleanup, run `npm run typecheck` to confirm 0 errors.
 | `src/renderer/src/pages/Dashboard.tsx` | macOS version banner via `getOsInfo()` on mount |
 | `docs/plans/first-run-ux.md` | NEW — full implementation plan with checklist (all items complete) |
 | `package.json` | `motion` added as dependency |
+| `src/renderer/src/workers/whisper.worker.ts` | Removed debug fetch interceptor + all debug `console.log/error` calls |
 
 ---
 
@@ -239,7 +195,24 @@ After cleanup, run `npm run typecheck` to confirm 0 errors.
 
 | File | Key Change |
 |------|-----------|
-| `src/renderer/src/pages/Transcript.tsx` | Added Screenshots tab, full-screen lightbox, Info HUD, copy/download buttons, macOS drag regions |
-| `src/renderer/src/assets/main.css` | Lightbox specific animations (`lightboxEnter`, `lightboxFadeIn`) |
-| `src/main/ipc/storage.ts` | Added `storage:read-screenshot` and `clipboard:write-image` IPC handlers |
-| `src/preload/index.ts` / `index.d.ts` | Expose `readScreenshot` and `writeImageToClipboard` |
+| `src/main/lib/types.ts` | `onboardingComplete?: boolean` added to `AppSettings` |
+| `src/main/ipc/settings.ts` | `platform:os-info` + `system:open-screen-recording-settings` IPC handlers |
+| `src/preload/index.ts` | Expose `getOsInfo()`, `openScreenRecordingSettings()` |
+| `src/preload/index.d.ts` | Type declarations for new preload methods |
+| `src/renderer/src/App.tsx` | `/onboarding` top-level route added outside `AppShell` |
+| `src/renderer/src/components/layout/AppShell.tsx` | On-mount check → redirect to `/onboarding` if `!onboardingComplete` |
+| `src/renderer/src/pages/Onboarding.tsx` | NEW — wizard container (step state, spring transitions, completion handler) |
+| `src/renderer/src/components/LlmFields.tsx` | NEW — shared LLM config fields component |
+| `src/renderer/src/components/onboarding/WelcomeStep.tsx` | NEW — Step 1 |
+| `src/renderer/src/components/onboarding/LlmSetupStep.tsx` | NEW — Step 2 |
+| `src/renderer/src/components/onboarding/WhisperSetupStep.tsx` | NEW — Step 3 |
+| `src/renderer/src/components/onboarding/PermissionsStep.tsx` | NEW — Step 4 |
+| `src/renderer/src/components/onboarding/ReadyStep.tsx` | NEW — Step 5 |
+| `src/renderer/src/pages/Settings.tsx` | LLM section → `LlmFields`; Re-run Setup row added to Storage section |
+| `src/renderer/src/atoms/transcription.ts` | `failedStage` field added to `TranscriptionState` |
+| `src/renderer/src/components/PipelineStatus.tsx` | Per-step error label + Retry button |
+| `src/renderer/src/pages/Transcript.tsx` | Pass `failedStage` + `onRetry` to `PipelineStatus` |
+| `src/renderer/src/pages/Dashboard.tsx` | macOS version banner via `getOsInfo()` on mount |
+| `src/renderer/src/workers/whisper.worker.ts` | `allowLocalModels = false` fix (confirmed working) |
+| `docs/plans/first-run-ux.md` | NEW — full implementation plan with checklist (all items complete) |
+| `package.json` | `motion` added as dependency |

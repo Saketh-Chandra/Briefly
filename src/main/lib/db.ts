@@ -87,7 +87,13 @@ export function getMeetingDetail(id: number): MeetingDetail | null {
     .get()
 
   const summaryRow = db
-    .select({ summary: summaries.summary, todos: summaries.todos, journal: summaries.journal })
+    .select({
+      summary: summaries.summary,
+      todos: summaries.todos,
+      key_decisions: summaries.key_decisions,
+      participants: summaries.participants,
+      journal: summaries.journal
+    })
     .from(summaries)
     .where(eq(summaries.meeting_id, id))
     .get()
@@ -112,6 +118,8 @@ export function getMeetingDetail(id: number): MeetingDetail | null {
       ? {
           summary: summaryRow.summary,
           todos: summaryRow.todos ? JSON.parse(summaryRow.todos) : null,
+          key_decisions: summaryRow.key_decisions ? JSON.parse(summaryRow.key_decisions) : null,
+          participants: summaryRow.participants ? JSON.parse(summaryRow.participants) : null,
           journal: summaryRow.journal
         }
       : null,
@@ -249,6 +257,8 @@ export function insertSummary(params: {
   meetingId: number
   summary: string | null
   todos: import('./types').Todo[] | null
+  keyDecisions: string[] | null
+  participants: string[] | null
   journal: string | null
   llmModel: string
   meetingTitle?: string | null
@@ -259,6 +269,8 @@ export function insertSummary(params: {
       meeting_id: params.meetingId,
       summary: params.summary,
       todos: params.todos ? JSON.stringify(params.todos) : null,
+      key_decisions: params.keyDecisions ? JSON.stringify(params.keyDecisions) : null,
+      participants: params.participants ? JSON.stringify(params.participants) : null,
       journal: params.journal,
       llm_model: params.llmModel
     })
