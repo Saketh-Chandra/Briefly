@@ -45,7 +45,7 @@ For the latest implementation snapshot see [docs/current-state.md](docs/current-
 | Storage | SQLite + `better-sqlite3` + Drizzle ORM |
 | Secrets | macOS Keychain via `keytar` |
 | Proxy support | Electron `session` proxy via configurable settings |
-| Code hygiene | ESLint + Knip |
+| Code hygiene | ESLint + Fallow |
 
 ---
 
@@ -95,19 +95,21 @@ npm run typecheck
 npm run lint
 ```
 
-### Audit unused files
+### Audit unused files / duplicates / complexity
 
 ```bash
-bunx knip --include files
+npx fallow dead-code   # unused files, exports, dependencies
+npx fallow dupes       # code duplication
+npx fallow health      # complexity hotspots
+npx fallow             # all of the above in one pass
 ```
 
-Knip is configured in [knip.jsonc](knip.jsonc) with explicit Electron-Vite entrypoints:
+Fallow is configured in [.fallowrc.jsonc](.fallowrc.jsonc) with explicit Electron-Vite entrypoints:
 [electron.vite.config.ts](electron.vite.config.ts), [src/main/index.ts](src/main/index.ts),
 [src/preload/index.ts](src/preload/index.ts), and [src/renderer/src/main.tsx](src/renderer/src/main.tsx).
-That keeps the unused-file report focused on real unreachable code instead of framework-owned wiring.
 Ambient declaration files [src/preload/index.d.ts](src/preload/index.d.ts) and
-[src/renderer/src/env.d.ts](src/renderer/src/env.d.ts) are excluded from the `unused files`
-report only.
+[src/renderer/src/env.d.ts](src/renderer/src/env.d.ts) are listed under `ignorePatterns` so they
+are excluded from the unused-files report.
 
 ### Build the app
 
@@ -237,7 +239,7 @@ All channels are invoked via `window.api.*` from the renderer (typed in `src/pre
 ## Project Structure
 
 ```
-knip.jsonc           Knip config with explicit Electron-Vite entrypoints
+.fallowrc.jsonc      Fallow config with explicit Electron-Vite entrypoints
 drizzle/              SQL migrations and Drizzle metadata
 docs/                 Architecture docs, plans, and current-state snapshot
 resources/            Bundled assets (app icon, entitlements)
@@ -295,7 +297,7 @@ Renderer (React)
 
 1. Fork the repo and create a feature branch.
 2. Install dependencies with `bun install`.
-3. Run `npm run typecheck`, `npm run lint`, and `bunx knip --include files` before opening a PR.
+3. Run `npm run typecheck`, `npm run lint`, and `npx fallow dead-code` before opening a PR.
 4. Keep PRs focused; one concern per PR.
 5. API keys and audio files are never committed — check `.gitignore` before staging.
 

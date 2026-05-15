@@ -1,10 +1,8 @@
 import { atom } from 'jotai'
 import type { Meeting, MeetingStatus } from '../../../main/lib/types'
 import { transcriptionAtom } from './transcription'
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import type { TranscriptionState } from './transcription'
+import { toLocalISODate } from '../lib/format'
 
 // ── Shared meetings list ──────────────────────────────────────────────────────
 
@@ -17,14 +15,8 @@ export const loadMeetingsAtom = atom(null, async (_get, set): Promise<void> => {
   set(meetingsAtom, all)
 })
 
-/**
- * Meetings with the live pipeline status overlaid so that navigating to
- * Dashboard or Recordings always shows the correct in-flight state without
- * waiting for a DB round-trip.
- */
-export const liveMeetingsAtom = atom((get) => {
-  const list = get(meetingsAtom)
-  const txState = get(transcriptionAtom)
+/** Overlay the active pipeline status onto a meeting list without a DB round-trip. */
+function withLiveOverlay(list: Meeting[], txState: TranscriptionState): Meeting[] {
   if (txState.meetingId === null || txState.stage === 'idle' || txState.stage === 'done') {
     return list
   }
@@ -35,7 +27,16 @@ export const liveMeetingsAtom = atom((get) => {
         ? 'error'
         : 'transcribing'
   return list.map((m) => (m.id === txState.meetingId ? { ...m, status: liveStatus } : m))
-})
+}
+
+/**
+ * Meetings with the live pipeline status overlaid so that navigating to
+ * Dashboard or Recordings always shows the correct in-flight state without
+ * waiting for a DB round-trip.
+ */
+export const liveMeetingsAtom = atom((get) =>
+  withLiveOverlay(get(meetingsAtom), get(transcriptionAtom))
+)
 
 // ── Recordings page filters ───────────────────────────────────────────────────
 
@@ -83,29 +84,15 @@ export const filteredMeetingsAtom = atom((get) => {
   const searchResults = get(searchResultsAtom)
   const txState = get(transcriptionAtom)
 
-  // Compute live status overlay helper (mirrors liveMeetingsAtom logic)
-  function withLiveOverlay(list: Meeting[]): Meeting[] {
-    if (txState.meetingId === null || txState.stage === 'idle' || txState.stage === 'done') {
-      return list
-    }
-    const liveStatus: MeetingStatus =
-      txState.stage === 'processing-llm'
-        ? 'processing'
-        : txState.stage === 'error'
-          ? 'error'
-          : 'transcribing'
-    return list.map((m) => (m.id === txState.meetingId ? { ...m, status: liveStatus } : m))
-  }
-
   let result: Meeting[]
   if (searchTerm) {
     if (searchResults !== null) {
       // FTS results are back — use them with live overlay
-      result = withLiveOverlay(searchResults)
+      result = withLiveOverlay(searchResults, txState)
     } else {
       // Still loading — title-only fallback so the list isn't blank
       const lower = searchTerm.toLowerCase()
-      result = withLiveOverlay(get(meetingsAtom)).filter((m) =>
+      result = withLiveOverlay(get(meetingsAtom), txState).filter((m) =>
         (m.title ?? '').toLowerCase().includes(lower)
       )
     }
@@ -120,7 +107,7 @@ export const filteredMeetingsAtom = atom((get) => {
 // ── Journal page ──────────────────────────────────────────────────────────────
 
 /** Currently selected journal date (ISO 8601). Defaults to today. */
-export const journalDateAtom = atom<string>(todayISO())
+export const journalDateAtom = atom<string>(toLocalISODate(new Date()))
 
 /** Meetings loaded for the selected journal date. */
 export const journalMeetingsAtom = atom<Meeting[]>([])

@@ -9,13 +9,16 @@ import { Button } from '../components/ui/button'
 import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
 import { liveMeetingsAtom, loadMeetingsAtom } from '../atoms/pages'
 import { isSupportedMacOSVersion } from '../lib/platform'
+import { useDeleteMeeting } from '../hooks/useDeleteMeeting'
 
 export default function Dashboard(): React.JSX.Element {
   const meetings = useAtomValue(liveMeetingsAtom)
   const loadMeetings = useSetAtom(loadMeetingsAtom)
   const navigate = useNavigate()
   const [unsupportedOS, setUnsupportedOS] = useState(false)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
+    () => void loadMeetings()
+  )
 
   // Initial load
   useEffect(() => {
@@ -45,17 +48,6 @@ export default function Dashboard(): React.JSX.Element {
     if (result) {
       navigate(`/recordings/${result.meetingId}`)
     }
-  }
-
-  async function handleDelete(id: number): Promise<void> {
-    setDeleteId(id)
-  }
-
-  async function confirmDelete(): Promise<void> {
-    if (deleteId === null) return
-    await window.api.deleteMeeting(deleteId)
-    setDeleteId(null)
-    void loadMeetings()
   }
 
   const today = meetings.filter((m) => isToday(parseISO(m.date)))
@@ -145,7 +137,9 @@ export default function Dashboard(): React.JSX.Element {
 
       <DeleteMeetingDialog
         open={deleteId !== null}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null)
+        }}
         onConfirm={confirmDelete}
       />
     </div>

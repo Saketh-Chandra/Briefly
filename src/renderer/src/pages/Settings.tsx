@@ -32,6 +32,7 @@ import {
 } from '../components/ui/dialog'
 import LlmFields from '../components/LlmFields'
 import type { ProxySettings } from '../../../main/lib/types'
+import { initWhisperWorker } from '../lib/whisper-worker'
 
 const WHISPER_MODELS = [
   { id: 'onnx-community/whisper-large-v3-turbo', label: 'Whisper Large v3 Turbo (~1.6 GB)' },
@@ -269,20 +270,9 @@ export default function Settings(): React.JSX.Element {
       })
       dlWorkerRef.current = worker
 
-      await new Promise<void>((resolve, reject) => {
-        worker.onmessage = (e) => {
-          const msg = e.data
-          if (msg.type === 'model_loading') setDlProgress(msg.progress ?? 0)
-          if (msg.type === 'model_ready') resolve()
-          if (msg.type === 'error') reject(new Error(msg.message))
-        }
-        worker.onerror = (e) => reject(new Error(e.message))
-        worker.postMessage({
-          type: 'init',
-          modelId: whisperModel,
-          modelCachePath,
-          ...(hfEndpoint ? { hfEndpoint } : {})
-        })
+      await initWhisperWorker(worker, whisperModel, modelCachePath, {
+        hfEndpoint: hfEndpoint || undefined,
+        onProgress: setDlProgress
       })
 
       worker.terminate()

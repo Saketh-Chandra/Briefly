@@ -5,14 +5,7 @@ import DateNavigator from '../components/DateNavigator'
 import JournalEntryCard from '../components/JournalEntryCard'
 import DailySummary from '../components/DailySummary'
 import { journalDateAtom, journalMeetingsAtom, loadJournalMeetingsAtom } from '../atoms/pages'
-
-function todayISO(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+import { toLocalISODate } from '../lib/format'
 
 export default function Journal(): React.JSX.Element {
   const { date: routeDate } = useParams<{ date?: string }>()
@@ -24,7 +17,7 @@ export default function Journal(): React.JSX.Element {
 
   // Sync route param → atom on mount / navigation
   useEffect(() => {
-    const targetDate = routeDate ?? todayISO()
+    const targetDate = routeDate ?? toLocalISODate(new Date())
     setDate(targetDate)
   }, [routeDate, setDate])
 

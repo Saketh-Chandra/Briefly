@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import SearchBar from '../components/SearchBar'
 import FilterBar from '../components/FilterBar'
@@ -13,6 +13,7 @@ import {
   searchTermAtom,
   isSearchingAtom
 } from '../atoms/pages'
+import { useDeleteMeeting } from '../hooks/useDeleteMeeting'
 
 export default function Recordings(): React.JSX.Element {
   const loadMeetings = useSetAtom(loadMeetingsAtom)
@@ -23,7 +24,9 @@ export default function Recordings(): React.JSX.Element {
   const searchTerm = useAtomValue(searchTermAtom)
   const isSearching = useAtomValue(isSearchingAtom)
   const searchResults = useAtomValue(searchResultsAtom)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(() =>
+    void loadMeetings()
+  )
 
   useEffect(() => {
     void loadMeetings()
@@ -49,17 +52,6 @@ export default function Recordings(): React.JSX.Element {
     const unsub = window.api.onLlmDone(() => void loadMeetings())
     return unsub
   }, [loadMeetings])
-
-  async function handleDelete(id: number): Promise<void> {
-    setDeleteId(id)
-  }
-
-  async function confirmDelete(): Promise<void> {
-    if (deleteId === null) return
-    await window.api.deleteMeeting(deleteId)
-    setDeleteId(null)
-    void loadMeetings()
-  }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">

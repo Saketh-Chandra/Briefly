@@ -2,6 +2,7 @@ import React from 'react'
 import { format, parseISO, isToday, isYesterday, addDays, subDays } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
+import { toLocalISODate } from '../lib/format'
 
 interface DateNavigatorProps {
   date: string // YYYY-MM-DD
@@ -15,15 +16,8 @@ function label(dateStr: string): string {
   return format(d, 'EEEE, MMMM d, yyyy')
 }
 
-function toISO(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 export default function DateNavigator({ date, onChange }: DateNavigatorProps): React.JSX.Element {
-  const canGoForward = date < toISO(new Date())
+  const canGoForward = date < toLocalISODate(new Date())
 
   return (
     <div className="flex items-center gap-1">
@@ -32,7 +26,7 @@ export default function DateNavigator({ date, onChange }: DateNavigatorProps): R
         size="icon"
         className="h-7 w-7"
         aria-label="Previous day"
-        onClick={() => onChange(toISO(subDays(parseISO(date), 1)))}
+        onClick={() => onChange(toLocalISODate(subDays(parseISO(date), 1)))}
       >
         <ChevronLeft size={15} />
       </Button>
@@ -45,7 +39,7 @@ export default function DateNavigator({ date, onChange }: DateNavigatorProps): R
         className="h-7 w-7"
         disabled={!canGoForward}
         aria-label="Next day"
-        onClick={() => onChange(toISO(addDays(parseISO(date), 1)))}
+        onClick={() => onChange(toLocalISODate(addDays(parseISO(date), 1)))}
       >
         <ChevronRight size={15} />
       </Button>

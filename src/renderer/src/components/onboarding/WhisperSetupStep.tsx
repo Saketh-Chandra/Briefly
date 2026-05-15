@@ -3,6 +3,7 @@ import { Download, X, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { initWhisperWorker } from '../../lib/whisper-worker'
 
 const WHISPER_MODELS = [
   { id: 'onnx-community/whisper-tiny', label: 'Whisper Tiny', size: '~38 MB' },
@@ -78,16 +79,7 @@ export default function WhisperSetupStep({
       })
       dlWorkerRef.current = worker
 
-      await new Promise<void>((resolve, reject) => {
-        worker.onmessage = (e) => {
-          const msg = e.data
-          if (msg.type === 'model_loading') setDlProgress(msg.progress ?? 0)
-          if (msg.type === 'model_ready') resolve()
-          if (msg.type === 'error') reject(new Error(msg.message))
-        }
-        worker.onerror = (e) => reject(new Error(e.message))
-        worker.postMessage({ type: 'init', modelId: selectedModel, modelCachePath })
-      })
+      await initWhisperWorker(worker, selectedModel, modelCachePath, { onProgress: setDlProgress })
 
       worker.terminate()
       dlWorkerRef.current = null

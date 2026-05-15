@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import type { TranscriptChunk } from '../../../main/lib/types'
+import { initWhisperWorker } from '../lib/whisper-worker'
 
 // ---------------------------------------------------------------------------
 // Audio decode helper — must run in renderer main thread (OfflineAudioContext
@@ -157,39 +158,16 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
     workerRef = worker
 
     // Initialise model — wait for model_ready before proceeding
-    await new Promise<void>((resolve, reject) => {
-      worker.onmessage = (e) => {
-        const msg = e.data
-        if (msg.type === 'model_loading') {
-          set(
-            transcriptionAtom,
-            (prev): TranscriptionState => ({
-              ...prev,
-              progress: msg.progress ?? 0
-            })
-          )
-        }
-        if (msg.type === 'model_ready') {
-          set(
-            transcriptionAtom,
-            (prev): TranscriptionState => ({
-              ...prev,
-              stage: 'transcribing',
-              progress: 0
-            })
-          )
-          resolve()
-        }
-        if (msg.type === 'error') reject(new Error(msg.message))
-      }
-      worker.onerror = (e) => reject(new Error(e.message))
-      worker.postMessage({
-        type: 'init',
-        modelId: settings.whisperModel,
-        modelCachePath,
-        ...(settings.hfEndpoint ? { hfEndpoint: settings.hfEndpoint } : {})
-      })
+    await initWhisperWorker(worker, settings.whisperModel, modelCachePath, {
+      hfEndpoint: settings.hfEndpoint,
+      onProgress: (progress) =>
+        set(transcriptionAtom, (prev): TranscriptionState => ({ ...prev, progress }))
     })
+    set(transcriptionAtom, (prev): TranscriptionState => ({
+      ...prev,
+      stage: 'transcribing',
+      progress: 0
+    }))
 
     const { audioPath } = await window.api.startTranscription(meetingId)
 

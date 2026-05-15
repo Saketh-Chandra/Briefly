@@ -49,6 +49,8 @@ export default function Transcript(): React.JSX.Element {
   const [loadingScreenshots, setLoadingScreenshots] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showInfo, setShowInfo] = useState(false)
+  const [hasCopied, setHasCopied] = useState(false)
+  const [hasExported, setHasExported] = useState(false)
   const [hasCopiedImage, setHasCopiedImage] = useState(false)
   const [imgDims, setImgDims] = useState<Record<number, { w: number; h: number }>>({})
 
@@ -116,8 +118,22 @@ export default function Transcript(): React.JSX.Element {
   }
 
   async function handleCopy(): Promise<void> {
-    const text = meeting?.transcript?.content ?? ''
+    const chunks = meeting?.transcript?.chunks
+    let text: string
+    if (chunks && chunks.length > 0) {
+      text = chunks
+        .map((c) => {
+          const m = Math.floor(c.start / 60).toString().padStart(2, '0')
+          const s = Math.floor(c.start % 60).toString().padStart(2, '0')
+          return `[${m}:${s}] ${c.text}`
+        })
+        .join('\n')
+    } else {
+      text = meeting?.transcript?.content ?? ''
+    }
     await navigator.clipboard.writeText(text)
+    setHasCopied(true)
+    setTimeout(() => setHasCopied(false), 2000)
   }
 
   async function handleExport(): Promise<void> {
@@ -130,7 +146,15 @@ export default function Transcript(): React.JSX.Element {
       '',
       '## Transcript',
       '',
-      m.transcript?.content ?? '_No transcript_',
+      m.transcript?.chunks && m.transcript.chunks.length > 0
+        ? m.transcript.chunks
+            .map((c) => {
+              const min = Math.floor(c.start / 60).toString().padStart(2, '0')
+              const sec = Math.floor(c.start % 60).toString().padStart(2, '0')
+              return `[${min}:${sec}] ${c.text}`
+            })
+            .join('\n')
+        : (m.transcript?.content ?? '_No transcript_'),
       ''
     ]
     if (m.summary?.summary) {
@@ -163,6 +187,8 @@ export default function Transcript(): React.JSX.Element {
     a.download = `${(m.title ?? 'meeting').replace(/[^a-z0-9]/gi, '-')}.md`
     a.click()
     URL.revokeObjectURL(url)
+    setHasExported(true)
+    setTimeout(() => setHasExported(false), 2000)
   }
 
   async function handleRerun(): Promise<void> {
@@ -254,7 +280,11 @@ export default function Transcript(): React.JSX.Element {
             aria-label="Copy transcript"
             onClick={() => void handleCopy()}
           >
-            <Copy size={14} strokeWidth={1.5} />
+            {hasCopied ? (
+              <Check size={14} strokeWidth={2} className="text-foreground/80" />
+            ) : (
+              <Copy size={14} strokeWidth={1.5} />
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -264,7 +294,11 @@ export default function Transcript(): React.JSX.Element {
             aria-label="Export Markdown"
             onClick={() => void handleExport()}
           >
-            <Download size={14} strokeWidth={1.5} />
+            {hasExported ? (
+              <Check size={14} strokeWidth={2} className="text-foreground/80" />
+            ) : (
+              <Download size={14} strokeWidth={1.5} />
+            )}
           </Button>
           {!isPipelineActive && meeting.status !== 'recording' && meeting.status !== 'recorded' && (
             <Button
