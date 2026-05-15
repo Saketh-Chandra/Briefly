@@ -72,10 +72,6 @@ export default function RecordButton({ onStarted }: RecordButtonProps): React.JS
         onClick={() => void handleClick()}
         disabled={isSaving}
         className="gap-2.5 rounded-xl px-8 py-6 text-[15px] font-semibold tracking-tight transition-all duration-200 hover:scale-[1.02]"
-        style={{
-          backgroundColor: 'var(--briefly-accent)',
-          color: 'oklch(0.1 0 0)'
-        }}
       >
         <Mic size={17} strokeWidth={2} />
         {isSaving ? 'Saving…' : 'Start Recording'}

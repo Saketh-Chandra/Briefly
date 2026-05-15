@@ -59,7 +59,10 @@ src/
       App.tsx         ← Jotai Provider + React Router; renders AppShell
       main.tsx        ← React DOM root
       assets/
-        main.css      ← Tailwind base + custom scrollbar
+        main.css      ← Tailwind base + custom scrollbar + Briefly design tokens:
+                          --briefly-accent/accent-dim (amber), --briefly-record/record-glow (red),
+                          --briefly-warning/warning-bg/warning-border (amber warning banners),
+                          --briefly-lightbox-bg/lightbox-fade (screenshot lightbox overlay)
       atoms/
         recording.ts  ← recording state (start/stop/status)
         transcription.ts ← full pipeline atom (model load → transcribe → LLM)
@@ -69,11 +72,24 @@ src/
           AppShell.tsx  ← sidebar nav + onNavigate + tray/shortcut subscriptions
         ui/           ← shadcn/ui components (Button, Input, etc.)
         AudioWaveform.tsx, MeetingCard.tsx, PipelineStatus.tsx, StatusBadge.tsx, etc.
+        DeleteMeetingDialog.tsx ← shared delete confirmation dialog (replaces all window.confirm() calls)
+        DateNavigator.tsx      ← local-date-aware prev/next day navigation (uses getFullYear/getMonth/getDate, not toISOString)
+        FilterBar.tsx          ← status filter pills with aria-pressed
+        MeetingList.tsx        ← meeting rows; accepts emptyMessage prop and flat prop (FTS results without date grouping)
+        SourcePicker.tsx       ← screen/window source picker; uses Lucide <Check> for selected state
+        onboarding/
+          WelcomeStep.tsx
+          LlmSetupStep.tsx     ← accepts stepNumber + totalSteps props
+          WhisperSetupStep.tsx ← accepts stepNumber + totalSteps props
+          PermissionsStep.tsx  ← accepts stepNumber + totalSteps props
+          ReadyStep.tsx        ← accepts stepNumber + totalSteps props
       contexts/
         TranscriptionContext.tsx ← thin wrapper; exposes transcriptionAtom via hook
         RecordingContext.tsx     ← recording state context
       lib/
         capture-session.ts ← CaptureSession: getDisplayMedia + Web Audio mixing + MediaRecorder
+        format.ts          ← shared formatDuration(seconds) utility (used by MeetingCard, MeetingList)
+        platform.ts        ← shared isSupportedMacOSVersion(darwinVersion) utility (used by Dashboard, Onboarding)
       pages/
         Dashboard.tsx   ← today's meetings + RecordButton
         Recordings.tsx  ← all recordings with search/filter
@@ -298,6 +314,53 @@ The transcription + LLM pipeline is designed to survive page navigation:
 - `reset()` (from `resetTranscriptionAtom`) is the **only** thing that terminates the Worker — it is not called on unmount
 - `startPipelineAtom` cancels and restarts cleanly if called while a pipeline is already running
 - `liveMeetingsAtom` overlays the live stage onto the DB meeting list so Dashboard/Recordings show correct status without a DB round-trip
+
+---
+
+## UI/UX & Accessibility Conventions
+
+### Design tokens (always use these — never raw Tailwind colour utilities)
+| Token | Value | Usage |
+|---|---|---|
+| `--briefly-accent` | `oklch(0.78 0.16 60)` | Primary amber; maps to `--primary` in dark mode |
+| `--briefly-accent-dim` | `oklch(0.65 0.13 60)` | Dimmed accent |
+| `--briefly-record` | `oklch(0.62 0.22 25)` | Recording red; maps to `--destructive` |
+| `--briefly-warning` | `oklch(0.78 0.18 75)` | Amber warning text |
+| `--briefly-warning-bg` | `oklch(0.78 0.18 75 / 7%)` | Warning banner fill |
+| `--briefly-warning-border` | `oklch(0.78 0.18 75 / 25%)` | Warning banner border |
+| `--briefly-lightbox-bg` | `oklch(0.05 0.006 60 / 0.96)` | Lightbox overlay background |
+| `--briefly-lightbox-fade` | `oklch(0.04 0.006 60 / 0.85)` | Lightbox HUD gradient start |
+
+Use `text-[--briefly-warning]`, `bg-[--briefly-warning-bg]`, `border-[--briefly-warning-border]` etc.
+Do **not** use `text-amber-400`, `bg-amber-500/[0.07]`, `text-green-500`, or inline `oklch()` style values.
+Use `text-foreground/80` for "success" / "connected" states instead of `text-green-500`.
+
+### Shared utilities
+- **`lib/format.ts`** — `formatDuration(seconds: number | null): string` → `"2m 15s"` / `"45s"` / `"—"`
+- **`lib/platform.ts`** — `isSupportedMacOSVersion(darwinVersion: string): boolean` — true for macOS 14.2+ (Darwin 23.2+)
+
+### Shared components
+- **`DeleteMeetingDialog`** — always use for destructive delete confirmation; never `window.confirm()`.
+  ```tsx
+  <DeleteMeetingDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} />
+  ```
+
+### Accessibility patterns
+- All icon-only buttons must have `aria-label`.
+- Delete buttons use `aria-label={\`Delete ${meeting.title ?? 'recording'}\`}`.
+- Toggle buttons use `aria-pressed={boolean}`.
+- Collapsible sections: toggle button gets `aria-expanded` + `aria-controls="<id>"`, controlled region gets matching `id`.
+- `<Label>` components must be linked to their input via `htmlFor` + `id` on the control.
+- `<Select>` components: put `id` on `<SelectTrigger>`, not the `<Select>` wrapper.
+- Checkboxes that are siblings of their label text should be wrapped in `<label>` for click-area association.
+- Pipeline status text that updates dynamically: `<p aria-live="polite" aria-atomic="true">`.
+- Full-screen overlays (lightbox): wrap content in `<FocusScope trapped loop asChild>` from `@radix-ui/react-focus-scope`.
+
+### Date handling
+- Always derive "today" from local calendar date: `new Date().getFullYear()` / `.getMonth()` / `.getDate()`. **Do not** use `new Date().toISOString().slice(0, 10)` — that returns UTC date and breaks in positive-offset timezones.
+
+### Onboarding step components
+Each step component (`LlmSetupStep`, `WhisperSetupStep`, `PermissionsStep`, `ReadyStep`) accepts `stepNumber: number` and `totalSteps: number` props. Pass them from `Onboarding.tsx` using the `TOTAL_STEPS` constant.
 
 ---
 

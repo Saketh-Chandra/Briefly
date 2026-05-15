@@ -111,7 +111,7 @@ export default function LlmFields({
           Test Connection
         </Button>
         {testState === 'ok' && (
-          <span className="flex items-center gap-1 text-sm text-green-500">
+          <span className="flex items-center gap-1 text-sm text-foreground/80">
             <CheckCircle size={13} /> Connected
           </span>
         )}

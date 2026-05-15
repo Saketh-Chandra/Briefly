@@ -16,7 +16,10 @@ function label(dateStr: string): string {
 }
 
 function toISO(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function DateNavigator({ date, onChange }: DateNavigatorProps): React.JSX.Element {
@@ -28,6 +31,7 @@ export default function DateNavigator({ date, onChange }: DateNavigatorProps): R
         variant="ghost"
         size="icon"
         className="h-7 w-7"
+        aria-label="Previous day"
         onClick={() => onChange(toISO(subDays(parseISO(date), 1)))}
       >
         <ChevronLeft size={15} />
@@ -40,6 +44,7 @@ export default function DateNavigator({ date, onChange }: DateNavigatorProps): R
         size="icon"
         className="h-7 w-7"
         disabled={!canGoForward}
+        aria-label="Next day"
         onClick={() => onChange(toISO(addDays(parseISO(date), 1)))}
       >
         <ChevronRight size={15} />

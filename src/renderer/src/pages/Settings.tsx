@@ -382,9 +382,9 @@ export default function Settings(): React.JSX.Element {
         </h2>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label>Model</Label>
+            <Label htmlFor="whisper-model-select">Model</Label>
             <Select value={whisperModel} onValueChange={setWhisperModel}>
-              <SelectTrigger>
+              <SelectTrigger id="whisper-model-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -403,9 +403,9 @@ export default function Settings(): React.JSX.Element {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Language</Label>
+            <Label htmlFor="whisper-lang-select">Language</Label>
             <Select value={whisperLang} onValueChange={setWhisperLang}>
-              <SelectTrigger>
+              <SelectTrigger id="whisper-lang-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -431,12 +431,14 @@ export default function Settings(): React.JSX.Element {
                     </span>
                   )}
                 </span>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleCancelDownload}
-                  className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                  className="h-auto gap-0.5 px-1.5 py-0 text-[11px] text-muted-foreground hover:text-foreground hover:bg-transparent"
                 >
                   <X size={11} /> Cancel
-                </button>
+                </Button>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
@@ -511,6 +513,7 @@ export default function Settings(): React.JSX.Element {
               className="ml-2 h-7 w-7 shrink-0"
               onClick={() => void window.api.revealInFinder()}
               title="Reveal in Finder"
+              aria-label="Reveal in Finder"
             >
               <FolderOpen size={13} />
             </Button>
@@ -558,13 +561,15 @@ export default function Settings(): React.JSX.Element {
       <section className="mb-8">
         <button
           onClick={() => setAdvOpen((o) => !o)}
+          aria-expanded={advOpen}
+          aria-controls="settings-advanced"
           className="flex w-full items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 hover:text-muted-foreground transition-colors"
         >
           {advOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           Advanced
         </button>
         {advOpen && (
-          <div className="mt-4 flex flex-col gap-4">
+          <div id="settings-advanced" className="mt-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="hfEndpoint">HuggingFace Mirror URL</Label>
               <Input
@@ -602,7 +607,7 @@ export default function Settings(): React.JSX.Element {
                 Test
               </Button>
               {pingState === 'ok' && (
-                <span className="flex items-center gap-1 text-[12px] text-green-500">
+                <span className="flex items-center gap-1 text-[12px] text-foreground/80">
                   <CheckCircle size={13} /> Reachable
                 </span>
               )}

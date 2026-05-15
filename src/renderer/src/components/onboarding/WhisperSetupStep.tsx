@@ -14,12 +14,16 @@ interface WhisperSetupStepProps {
   selectedModel: string
   onModelChange: (id: string) => void
   onReady: (ready: boolean) => void
+  stepNumber: number
+  totalSteps: number
 }
 
 export default function WhisperSetupStep({
   selectedModel,
   onModelChange,
-  onReady
+  onReady,
+  stepNumber,
+  totalSteps
 }: WhisperSetupStepProps): React.JSX.Element {
   const [dlState, setDlState] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle')
   const [dlProgress, setDlProgress] = useState(0)
@@ -114,7 +118,7 @@ export default function WhisperSetupStep({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-          Step 3 of 5
+          Step {stepNumber} of {totalSteps}
         </p>
         <h2 className="font-display text-[32px] leading-tight italic text-foreground/90">
           Download a Whisper model
@@ -164,7 +168,7 @@ export default function WhisperSetupStep({
                 <X size={11} /> Cancel
               </button>
             </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-300"
                 style={{ width: `${dlProgress}%` }}
@@ -174,7 +178,7 @@ export default function WhisperSetupStep({
         )}
 
         {dlState === 'done' && (
-          <p className="flex items-center gap-1.5 text-sm text-green-500">
+          <p className="flex items-center gap-1.5 text-sm text-foreground/80">
             <CheckCircle size={14} />
             {selected?.label} ({selected?.size}) is ready
           </p>

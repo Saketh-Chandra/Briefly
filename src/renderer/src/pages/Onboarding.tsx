@@ -9,16 +9,9 @@ import LlmSetupStep from '../components/onboarding/LlmSetupStep'
 import WhisperSetupStep from '../components/onboarding/WhisperSetupStep'
 import PermissionsStep from '../components/onboarding/PermissionsStep'
 import ReadyStep from '../components/onboarding/ReadyStep'
+import { isSupportedMacOSVersion } from '../lib/platform'
 
 const TOTAL_STEPS = 5
-
-// Darwin 23.2+ = macOS 14.2 Sonoma (required for loopback audio)
-function isSupportedVersion(darwinVersion: string): boolean {
-  const parts = darwinVersion.split('.').map(Number)
-  const major = parts[0] ?? 0
-  const minor = parts[1] ?? 0
-  return major > 23 || (major === 23 && minor >= 2)
-}
 
 export default function Onboarding(): React.JSX.Element {
   const navigate = useNavigate()
@@ -47,7 +40,7 @@ export default function Onboarding(): React.JSX.Element {
   useEffect(() => {
     window.api
       .getOsInfo()
-      .then(({ darwinVersion }) => setSupportedOS(isSupportedVersion(darwinVersion)))
+      .then(({ darwinVersion }) => setSupportedOS(isSupportedMacOSVersion(darwinVersion)))
       .catch(() => setSupportedOS(true))
   }, [])
 
@@ -96,6 +89,8 @@ export default function Onboarding(): React.JSX.Element {
       case 1:
         return (
           <LlmSetupStep
+            stepNumber={2}
+            totalSteps={TOTAL_STEPS}
             baseURL={baseURL}
             apiKey={apiKey}
             model={model}
@@ -109,16 +104,20 @@ export default function Onboarding(): React.JSX.Element {
       case 2:
         return (
           <WhisperSetupStep
+            stepNumber={3}
+            totalSteps={TOTAL_STEPS}
             selectedModel={whisperModel}
             onModelChange={setWhisperModel}
             onReady={setWhisperReady}
           />
         )
       case 3:
-        return <PermissionsStep permissions={permissions} onRefresh={refreshPermissions} />
+        return <PermissionsStep stepNumber={4} totalSteps={TOTAL_STEPS} permissions={permissions} onRefresh={refreshPermissions} />
       case 4:
         return (
           <ReadyStep
+            stepNumber={5}
+            totalSteps={TOTAL_STEPS}
             llmConfigured={llmConfigured}
             whisperReady={whisperReady}
             screenPermission={permissions.screen}

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Trash2, ChevronRight } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { Button } from './ui/button'
+import { formatDuration } from '../lib/format'
 import type { Meeting } from '../../../main/lib/types'
 
 interface MeetingListProps {
@@ -11,6 +12,8 @@ interface MeetingListProps {
   onDelete: (id: number) => void
   /** When true, renders a flat ordered list without date grouping (used for search results). */
   flat?: boolean
+  /** Message to show when the list is empty. */
+  emptyMessage?: string
 }
 
 function dateLabel(dateStr: string): string {
@@ -20,14 +23,7 @@ function dateLabel(dateStr: string): string {
   return format(d, 'EEEE, MMMM d, yyyy')
 }
 
-function formatDuration(s: number | null): string {
-  if (s == null) return '—'
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`
-}
-
-export default function MeetingList({ meetings, onDelete, flat = false }: MeetingListProps): React.JSX.Element {
+export default function MeetingList({ meetings, onDelete, flat = false, emptyMessage }: MeetingListProps): React.JSX.Element {
   const navigate = useNavigate()
 
   const groups = useMemo(() => {
@@ -44,7 +40,7 @@ export default function MeetingList({ meetings, onDelete, flat = false }: Meetin
   if (meetings.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground/60">
-        No recordings match your search.
+        {emptyMessage ?? 'No recordings yet.'}
       </p>
     )
   }
@@ -88,8 +84,13 @@ function MeetingRow({
 }): React.JSX.Element {
   return (
     <div
-      className="flex cursor-pointer items-center gap-3 bg-card/40 px-4 py-3 transition-colors hover:bg-accent/30"
+      role="button"
+      tabIndex={0}
+      className="flex cursor-pointer items-center gap-3 bg-card/40 px-4 py-3 transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={() => navigate(`/recordings/${m.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') navigate(`/recordings/${m.id}`)
+      }}
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
@@ -108,6 +109,7 @@ function MeetingRow({
         variant="ghost"
         size="icon"
         className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+        aria-label={`Delete ${m.title ?? 'recording'}`}
         onClick={(e) => {
           e.stopPropagation()
           onDelete(m.id)

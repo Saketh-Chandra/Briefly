@@ -7,6 +7,8 @@ interface ReadyStepProps {
   whisperReady: boolean
   screenPermission: string
   micPermission: string
+  stepNumber: number
+  totalSteps: number
 }
 
 type RowStatus = 'ok' | 'skip' | 'warn'
@@ -37,7 +39,9 @@ export default function ReadyStep({
   llmConfigured,
   whisperReady,
   screenPermission,
-  micPermission
+  micPermission,
+  stepNumber,
+  totalSteps
 }: ReadyStepProps): React.JSX.Element {
   const screenGranted = screenPermission === 'granted'
   const micGranted = micPermission === 'granted'
@@ -46,7 +50,7 @@ export default function ReadyStep({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-          Step 5 of 5
+          Step {stepNumber} of {totalSteps}
         </p>
         <h2 className="font-display text-[32px] leading-tight italic text-foreground/90">
           You&apos;re ready.

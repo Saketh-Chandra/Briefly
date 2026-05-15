@@ -91,7 +91,7 @@ export default function PipelineStatus({
                   className={[
                     'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors',
                     isDone
-                      ? 'bg-green-500/80 text-white'
+                      ? 'bg-primary/80 text-primary-foreground'
                       : isActive
                         ? 'bg-primary text-primary-foreground animate-pulse'
                         : 'bg-muted text-muted-foreground'
@@ -113,7 +113,7 @@ export default function PipelineStatus({
 
       <Progress value={progress} className="h-1" />
 
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p aria-live="polite" aria-atomic="true" className="mt-2 text-[11px] text-muted-foreground">
         {stage === 'downloading-model' &&
           `Loading Whisper model…${progress > 0 ? ` ${progress}%` : ''}`}
         {stage === 'transcribing' && 'Transcribing audio…'}

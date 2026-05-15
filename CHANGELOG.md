@@ -8,8 +8,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Journal forward navigation broken in non-UTC timezones** — `DateNavigator` and `Journal.tsx` were calling `Date.toISOString().slice(0, 10)` which returns the UTC date, not the local calendar date. In timezones ahead of UTC (UTC+1 through UTC+14) this caused the "next day" button to be permanently disabled one day too early. Both now derive the date from `getFullYear()`/`getMonth()`/`getDate()`.
+- **Lightbox crash on screenshot open** — `Cannot read properties of null (reading 'naturalWidth')` occurred because `e.currentTarget` is nullified by React's synthetic event system before the `setImgDims` updater function ran. Fixed by capturing `naturalWidth`/`naturalHeight` into local variables before the state update call.
+
 ### Added
-- **Full-text transcript search** — the Recordings search bar now queries all indexed meeting content via SQLite FTS5 (BM25 ranking), not just titles.
+- **Shared `DeleteMeetingDialog` component** (`src/renderer/src/components/DeleteMeetingDialog.tsx`) — replaces all `window.confirm()` delete prompts across Dashboard, Recordings, and Transcript with a consistent modal dialog (title, description, Cancel + destructive Delete actions).
+- **`lib/platform.ts`** — `isSupportedMacOSVersion(darwinVersion)` extracted from Dashboard and Onboarding into a shared utility to avoid duplication.
+- **`lib/format.ts`** — `formatDuration(seconds)` extracted from MeetingCard and MeetingList into a shared utility.
+- **Lightbox real screenshot dimensions** — the info panel now shows actual pixel dimensions read from `img.naturalWidth`/`naturalHeight` via an `onLoad` handler; displays `—` until the image loads instead of the previous hardcoded `3840 × 2160`.
+- **Dashboard "View all" shortcut** — a "View all →" link appears in the Recent section header when the non-today meeting list is truncated at 5 items, navigating to `/recordings`.
+- **Context-aware empty state in `MeetingList`** — accepts an `emptyMessage` prop; Recordings passes `"No results for "…""` during search and `"No recordings yet."` otherwise.
+- **Design tokens for warning banners** — `--briefly-warning`, `--briefly-warning-bg`, and `--briefly-warning-border` CSS variables added to `main.css`. The amber OS-version warning banners in Dashboard and WelcomeStep now reference these tokens instead of hardcoded `amber-*` Tailwind classes.
+- **Design tokens for lightbox overlay** — `--briefly-lightbox-bg` and `--briefly-lightbox-fade` CSS variables added to `main.css`; all three inline `oklch()` literals in the Transcript lightbox replaced with `var(--briefly-lightbox-*)`.
+
+### Changed
+- **Onboarding step labels driven by props** — `LlmSetupStep`, `WhisperSetupStep`, `PermissionsStep`, and `ReadyStep` now accept `stepNumber: number` and `totalSteps: number` props instead of hardcoded `"Step N of 5"` strings. `Onboarding.tsx` passes values derived from the existing `TOTAL_STEPS` constant.
+- **Lightbox focus trap** — the screenshot lightbox portal is now wrapped in `@radix-ui/react-focus-scope` (`<FocusScope trapped loop>`) so keyboard focus cannot escape behind the overlay.
+- **`PipelineStatus` stage label is a live region** — `aria-live="polite" aria-atomic="true"` added to the status `<p>` so screen readers announce stage transitions ("Transcribing audio…" → "Generating summary…").
+- **`FilterBar` accessible selection state** — `aria-pressed` added to all filter pill buttons; focus ring (`focus-visible:ring-2 focus-visible:ring-ring`) added to each button.
+- **`MeetingList` keyboard navigation** — each meeting row now has `role="button"`, `tabIndex={0}`, and an `onKeyDown` handler (Enter/Space) to activate via keyboard.
+- **`TodoList` accessible checkboxes** — each list item's checkbox and label text are wrapped in a `<label>` element for correct screen reader association.
+- **`DateNavigator` accessible buttons** — `aria-label="Previous day"` / `aria-label="Next day"` added to navigation arrows.
+- **`SourcePicker` checkmark** — unicode `✓` replaced with `<Check size={12} />` Lucide icon in both the Screens and Windows source lists.
+- **Settings `<Label>` linked to `<Select>`** — Whisper Model and Language selects now have matching `id` attributes on their `<SelectTrigger>` and `htmlFor` on their `<Label>`.
+- **Settings Advanced section accessible** — the collapsible toggle gains `aria-controls="settings-advanced"`; the controlled `<div>` gains the matching `id`.
+- **Transcript toolbar uniform size** — back button changed from `h-7 w-7` to `h-8 w-8`, matching all other toolbar icon buttons.
+- **WhisperSetupStep progress bar height** — `h-1` → `h-1.5` to match the Settings download progress bar.
+- **`text-green-500` replaced with design token** — "Connected" in `LlmFields` and "model ready" in `WhisperSetupStep` now use `text-foreground/80` instead of the raw Tailwind green.
+- **Accessible names on delete/action buttons** — `aria-label="Delete <title>"` added to delete buttons in `MeetingCard`, `MeetingList`, and Transcript filmstrip/grid; `aria-label="Open transcript"` on `JournalEntryCard` ExternalLink button.
+- **Transcript lightbox filmstrip and screenshot grid** — each thumbnail button carries `aria-label="View screenshot N of M"` (filmstrip) or `aria-label="Open screenshot N"` (grid).
+
+
   - Standalone `search_index` FTS5 virtual table (`meeting_id UNINDEXED, source UNINDEXED, content`) added via migration `0002_fts_transcripts.sql`. Decoupled from source table schema — no triggers, no `content=` coupling.
   - Four content types indexed per meeting: `transcript`, `summary`, `decisions`, `journal`. Meeting titles searched separately via `LIKE` on the `meetings` table and always ranked first (score −999).
   - `indexForSearch(meetingId, source, content)` and `deleteSearchIndex(meetingId)` helpers in `db.ts` write/remove rows explicitly at the call sites (`insertTranscript`, `insertSummary`, `resetMeetingForReprocessing`).

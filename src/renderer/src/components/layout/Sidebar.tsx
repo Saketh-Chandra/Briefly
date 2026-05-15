@@ -103,14 +103,6 @@ export default function Sidebar(): React.JSX.Element {
             variant="default"
             size="sm"
             className="w-full gap-1.5"
-            style={
-              state.status === 'idle'
-                ? {
-                    backgroundColor: 'var(--briefly-accent)',
-                    color: 'oklch(0.1 0 0)'
-                  }
-                : {}
-            }
             onClick={() => void handleRecord()}
             disabled={state.status === 'saving'}
           >

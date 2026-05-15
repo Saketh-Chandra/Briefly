@@ -18,23 +18,22 @@ import {
   Calendar
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
 import { Separator } from '../components/ui/separator'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '../components/ui/dialog'
 import PipelineStatus from '../components/PipelineStatus'
 import TranscriptViewer from '../components/TranscriptViewer'
 import SummaryPanel from '../components/SummaryPanel'
 import TodoList from '../components/TodoList'
 import JournalPanel from '../components/JournalPanel'
 import StatusBadge from '../components/StatusBadge'
+import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
+import { FocusScope } from '@radix-ui/react-focus-scope'
 import { useTranscription } from '../contexts/TranscriptionContext'
 import type { MeetingDetail } from '../../../main/lib/types'
 
@@ -51,6 +50,7 @@ export default function Transcript(): React.JSX.Element {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [hasCopiedImage, setHasCopiedImage] = useState(false)
+  const [imgDims, setImgDims] = useState<Record<number, { w: number; h: number }>>({})
 
   const { state: txState, startPipeline, reset } = useTranscription()
   const isPipelineActive =
@@ -233,7 +233,7 @@ export default function Transcript(): React.JSX.Element {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-3">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Go back" onClick={() => navigate(-1)}>
           <ArrowLeft size={15} />
         </Button>
         <div className="min-w-0 flex-1">
@@ -251,6 +251,7 @@ export default function Transcript(): React.JSX.Element {
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             title="Copy transcript"
+            aria-label="Copy transcript"
             onClick={() => void handleCopy()}
           >
             <Copy size={14} strokeWidth={1.5} />
@@ -260,6 +261,7 @@ export default function Transcript(): React.JSX.Element {
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             title="Export Markdown"
+            aria-label="Export Markdown"
             onClick={() => void handleExport()}
           >
             <Download size={14} strokeWidth={1.5} />
@@ -270,6 +272,7 @@ export default function Transcript(): React.JSX.Element {
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               title="Re-run pipeline"
+              aria-label="Re-run pipeline"
               onClick={() => void handleRerun()}
             >
               <RefreshCw size={14} strokeWidth={1.5} />
@@ -280,6 +283,7 @@ export default function Transcript(): React.JSX.Element {
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             title="Delete meeting"
+            aria-label="Delete meeting"
             onClick={() => setDeleteOpen(true)}
           >
             <Trash2 size={14} strokeWidth={1.5} />
@@ -376,6 +380,7 @@ export default function Transcript(): React.JSX.Element {
                   <button
                     key={idx}
                     className="group relative aspect-video overflow-hidden rounded-lg border border-white/[0.07] bg-black/40 transition-all duration-200 hover:border-white/20 hover:shadow-2xl hover:shadow-black/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Open screenshot ${idx + 1}`}
                     onClick={() => setLightboxIdx(idx)}
                   >
                     <img
@@ -406,17 +411,18 @@ export default function Transcript(): React.JSX.Element {
       {/* Screenshot lightbox — full-screen portal overlay */}
       {lightboxIdx !== null &&
         createPortal(
-          <div
-            className="lightbox-overlay fixed inset-0 z-[200] flex flex-col"
-            style={{ background: 'oklch(0.05 0.006 60 / 0.96)', backdropFilter: 'blur(2px)' }}
-            onClick={() => setLightboxIdx(null)}
-          >
+          <FocusScope trapped loop asChild>
+            <div
+              className="lightbox-overlay fixed inset-0 z-[200] flex flex-col"
+              style={{ background: 'var(--briefly-lightbox-bg)', backdropFilter: 'blur(2px)' }}
+              onClick={() => setLightboxIdx(null)}
+            >
             {/* Top HUD */}
             <div
               className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20"
               style={{
                 background:
-                  'linear-gradient(to bottom, oklch(0.04 0.006 60 / 0.85) 0%, transparent 100%)'
+                  'linear-gradient(to bottom, var(--briefly-lightbox-fade) 0%, transparent 100%)'
               }}
             />
             <div
@@ -455,7 +461,7 @@ export default function Transcript(): React.JSX.Element {
                   title="Copy Image"
                 >
                   {hasCopiedImage ? (
-                    <Check size={14} strokeWidth={2} className="text-green-400" />
+                    <Check size={14} strokeWidth={2} className="text-foreground/80" />
                   ) : (
                     <Copy size={14} strokeWidth={1.5} />
                   )}
@@ -493,7 +499,11 @@ export default function Transcript(): React.JSX.Element {
                       <div className="text-white/50 text-[10px] uppercase tracking-wider">
                         Resolution
                       </div>
-                      <div className="font-mono">3840 × 2160</div>
+                      <div className="font-mono">
+                        {imgDims[lightboxIdx]
+                          ? `${imgDims[lightboxIdx].w} × ${imgDims[lightboxIdx].h}`
+                          : '—'}
+                      </div>
                     </div>
                   </div>
                   <Separator className="bg-white/5" />
@@ -544,6 +554,11 @@ export default function Transcript(): React.JSX.Element {
                 alt={`Screenshot ${lightboxIdx + 1}`}
                 className="lightbox-image max-h-full max-w-full object-contain"
                 style={{ maxHeight: 'calc(100vh - 100px)' }}
+                onLoad={(e) => {
+                  const w = e.currentTarget.naturalWidth
+                  const h = e.currentTarget.naturalHeight
+                  setImgDims((prev) => ({ ...prev, [lightboxIdx]: { w, h } }))
+                }}
               />
             </div>
 
@@ -582,7 +597,7 @@ export default function Transcript(): React.JSX.Element {
                   className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28"
                   style={{
                     background:
-                      'linear-gradient(to top, oklch(0.04 0.006 60 / 0.85) 0%, transparent 100%)'
+                      'linear-gradient(to top, var(--briefly-lightbox-fade) 0%, transparent 100%)'
                   }}
                 />
                 <div
@@ -593,6 +608,7 @@ export default function Transcript(): React.JSX.Element {
                     <button
                       key={idx}
                       onClick={() => setLightboxIdx(idx)}
+                      aria-label={`View screenshot ${idx + 1} of ${screenshotUrls.length}`}
                       className={`h-12 w-20 overflow-hidden rounded-md border transition-all duration-150 ${
                         idx === lightboxIdx
                           ? 'scale-110 border-white/60 opacity-100'
@@ -605,30 +621,17 @@ export default function Transcript(): React.JSX.Element {
                 </div>
               </>
             )}
-          </div>,
+          </div>
+          </FocusScope>,
           document.body
         )}
 
       {/* Delete confirmation */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete recording?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete the audio file, transcript, summary, and all associated
-              data. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void handleDelete()}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteMeetingDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

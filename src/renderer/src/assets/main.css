@@ -76,6 +76,11 @@
   --briefly-accent-dim: oklch(0.65 0.13 60);
   --briefly-record: oklch(0.62 0.22 25);   /* red for recording state */
   --briefly-record-glow: oklch(0.62 0.22 25 / 30%);
+  --briefly-warning: oklch(0.78 0.18 75);          /* amber warning text */
+  --briefly-warning-bg: oklch(0.78 0.18 75 / 7%);  /* warning banner fill */
+  --briefly-warning-border: oklch(0.78 0.18 75 / 25%); /* warning banner border */
+  --briefly-lightbox-bg: oklch(0.05 0.006 60 / 0.96);   /* lightbox overlay */
+  --briefly-lightbox-fade: oklch(0.04 0.006 60 / 0.85); /* lightbox HUD gradient start */
 
   /* Light theme (unused — app is dark-first) */
   --background: oklch(0.97 0.005 60);

@@ -8,7 +8,7 @@
  */
 import React, { useState } from 'react'
 import { useAtom } from 'jotai'
-import { Monitor, AppWindow, ChevronDown, Loader2 } from 'lucide-react'
+import { Monitor, AppWindow, ChevronDown, Loader2, Check } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,7 +96,7 @@ export default function SourcePicker(): React.JSX.Element {
                 )}
                 <span className="truncate text-[12px]">{s.name}</span>
                 {s.id === selectedId && (
-                  <span className="ml-auto text-[10px] text-muted-foreground">✓</span>
+                  <Check size={12} className="ml-auto shrink-0 text-muted-foreground" />
                 )}
               </DropdownMenuItem>
             ))}
@@ -126,7 +126,7 @@ export default function SourcePicker(): React.JSX.Element {
                 )}
                 <span className="truncate text-[12px]">{s.name}</span>
                 {s.id === selectedId && (
-                  <span className="ml-auto text-[10px] text-muted-foreground">✓</span>
+                  <Check size={12} className="ml-auto shrink-0 text-muted-foreground" />
                 )}
               </DropdownMenuItem>
             ))}

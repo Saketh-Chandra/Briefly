@@ -5,18 +5,12 @@ import { Trash2, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import StatusBadge from './StatusBadge'
+import { formatDuration } from '../lib/format'
 import type { Meeting } from '../../../main/lib/types'
 
 interface MeetingCardProps {
   meeting: Meeting
   onDelete?: (id: number) => void
-}
-
-function formatDuration(s: number | null): string {
-  if (s == null) return '—'
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`
 }
 
 export default function MeetingCard({ meeting, onDelete }: MeetingCardProps): React.JSX.Element {
@@ -44,6 +38,7 @@ export default function MeetingCard({ meeting, onDelete }: MeetingCardProps): Re
             variant="ghost"
             size="icon"
             className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+            aria-label={`Delete ${meeting.title ?? 'recording'}`}
             onClick={(e) => {
               e.stopPropagation()
               onDelete(meeting.id)

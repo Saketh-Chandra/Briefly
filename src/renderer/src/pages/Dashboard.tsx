@@ -2,24 +2,20 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isToday, parseISO } from 'date-fns'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { AlertTriangle, Upload } from 'lucide-react'
+import { AlertTriangle, Upload, ChevronRight } from 'lucide-react'
 import RecordButton from '../components/RecordButton'
 import MeetingCard from '../components/MeetingCard'
+import { Button } from '../components/ui/button'
+import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
 import { liveMeetingsAtom, loadMeetingsAtom } from '../atoms/pages'
-
-// Darwin 23.2+ = macOS 14.2 Sonoma (required for loopback audio)
-function isSupportedVersion(darwinVersion: string): boolean {
-  const parts = darwinVersion.split('.').map(Number)
-  const major = parts[0] ?? 0
-  const minor = parts[1] ?? 0
-  return major > 23 || (major === 23 && minor >= 2)
-}
+import { isSupportedMacOSVersion } from '../lib/platform'
 
 export default function Dashboard(): React.JSX.Element {
   const meetings = useAtomValue(liveMeetingsAtom)
   const loadMeetings = useSetAtom(loadMeetingsAtom)
   const navigate = useNavigate()
   const [unsupportedOS, setUnsupportedOS] = useState(false)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
 
   // Initial load
   useEffect(() => {
@@ -31,7 +27,7 @@ export default function Dashboard(): React.JSX.Element {
     window.api
       .getOsInfo()
       .then(({ darwinVersion }) => {
-        if (!isSupportedVersion(darwinVersion)) setUnsupportedOS(true)
+        if (!isSupportedMacOSVersion(darwinVersion)) setUnsupportedOS(true)
       })
       .catch(() => {})
   }, [])
@@ -52,8 +48,13 @@ export default function Dashboard(): React.JSX.Element {
   }
 
   async function handleDelete(id: number): Promise<void> {
-    if (!window.confirm('Delete this recording?')) return
-    await window.api.deleteMeeting(id)
+    setDeleteId(id)
+  }
+
+  async function confirmDelete(): Promise<void> {
+    if (deleteId === null) return
+    await window.api.deleteMeeting(deleteId)
+    setDeleteId(null)
     void loadMeetings()
   }
 
@@ -64,9 +65,9 @@ export default function Dashboard(): React.JSX.Element {
     <div className="mx-auto max-w-2xl px-6 py-10">
       {/* macOS version warning */}
       {unsupportedOS && (
-        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
-          <p className="text-[12px] leading-relaxed text-amber-400/80">
+        <div className="mb-6 flex items-start gap-2.5 rounded-lg border border-[--briefly-warning-border] bg-[--briefly-warning-bg] px-4 py-3">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[--briefly-warning]" />
+          <p className="text-[12px] leading-relaxed text-[--briefly-warning]/80">
             System audio capture requires macOS 14.2 Sonoma or later. You can still record
             microphone-only audio.
           </p>
@@ -74,7 +75,7 @@ export default function Dashboard(): React.JSX.Element {
       )}
       {/* Hero — Record CTA */}
       <section className="mb-12 flex flex-col items-center gap-3 pt-4">
-        <h1 className="font-display mb-1 text-center text-3xl italic text-foreground/80">
+        <h1 className="font-display mb-1 text-center text-2xl italic text-foreground/80">
           Ready when you are.
         </h1>
         <RecordButton onStarted={(id) => navigate(`/recordings/${id}`)} />
@@ -84,13 +85,15 @@ export default function Dashboard(): React.JSX.Element {
             ⌘⇧R
           </kbd>
         </p>
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => void handleImport()}
-          className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground/50 transition-colors hover:text-muted-foreground/80"
+          className="mt-1 h-auto gap-1.5 px-2 py-1 text-[11px] text-muted-foreground/50 hover:text-muted-foreground/80 hover:bg-transparent"
         >
           <Upload size={11} />
           import an audio file
-        </button>
+        </Button>
       </section>
 
       {/* Today */}
@@ -110,9 +113,22 @@ export default function Dashboard(): React.JSX.Element {
       {/* Recent */}
       {recent.length > 0 && (
         <section>
-          <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-            Recent
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              Recent
+            </h2>
+            {meetings.filter((m) => !isToday(parseISO(m.date))).length > 5 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/recordings')}
+                className="h-auto gap-1 px-2 py-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+              >
+                View all
+                <ChevronRight size={11} />
+              </Button>
+            )}
+          </div>
           <div className="flex flex-col gap-1.5">
             {recent.map((m) => (
               <MeetingCard key={m.id} meeting={m} onDelete={handleDelete} />
@@ -126,6 +142,12 @@ export default function Dashboard(): React.JSX.Element {
           No recordings yet. Hit record to begin.
         </p>
       )}
+
+      <DeleteMeetingDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

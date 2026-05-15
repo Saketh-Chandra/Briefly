@@ -44,6 +44,7 @@ export default function JournalEntryCard({ meeting }: JournalEntryCardProps): Re
           className="h-7 w-7 shrink-0 text-muted-foreground"
           onClick={() => navigate(`/recordings/${meeting.id}`)}
           title="Open transcript"
+          aria-label="Open transcript"
         >
           <ExternalLink size={13} />
         </Button>

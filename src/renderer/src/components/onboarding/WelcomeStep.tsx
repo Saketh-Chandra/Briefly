@@ -33,10 +33,10 @@ export default function WelcomeStep({ isSupportedOS }: WelcomeStepProps): React.
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-start gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-left max-w-sm"
+          className="flex items-start gap-2.5 rounded-lg border border-[--briefly-warning-border] bg-[--briefly-warning-bg] px-4 py-3 text-left max-w-sm"
         >
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
-          <p className="text-[12px] leading-relaxed text-amber-400/80">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[--briefly-warning]" />
+          <p className="text-[12px] leading-relaxed text-[--briefly-warning]/80">
             System audio capture requires macOS 14.2 Sonoma or later. Transcription of
             microphone-only recordings will still work.
           </p>

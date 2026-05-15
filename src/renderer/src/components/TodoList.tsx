@@ -7,9 +7,9 @@ interface TodoListProps {
 }
 
 const priorityDot: Record<Todo['priority'], string> = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-green-500'
+  high: 'bg-destructive',
+  medium: 'bg-primary/60',
+  low: 'bg-muted-foreground/40'
 }
 
 export default function TodoList({
@@ -31,31 +31,33 @@ export default function TodoList({
   return (
     <ul className="flex flex-col gap-3">
       {todos.map((todo, i) => (
-        <li key={i} className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            checked={todo.done}
-            onChange={() => void toggle(i)}
-            className="mt-0.5 h-4 w-4 cursor-pointer rounded accent-primary"
-          />
-          <div className="min-w-0 flex-1">
-            <p
-              className={`text-sm leading-snug ${todo.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}
-            >
-              {todo.text}
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              {todo.owner && (
-                <span className="text-[10px] text-muted-foreground">{todo.owner}</span>
-              )}
-              {todo.deadline && (
-                <span className="text-[10px] text-muted-foreground">Due {todo.deadline}</span>
-              )}
-              <span
-                className={`inline-block h-1.5 w-1.5 rounded-full ${priorityDot[todo.priority]}`}
-              />
+        <li key={i}>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={todo.done}
+              onChange={() => void toggle(i)}
+              className="mt-0.5 h-4 w-4 cursor-pointer rounded accent-primary"
+            />
+            <div className="min-w-0 flex-1">
+              <p
+                className={`text-sm leading-snug ${todo.done ? 'line-through text-muted-foreground' : 'text-foreground'}`}
+              >
+                {todo.text}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                {todo.owner && (
+                  <span className="text-[10px] text-muted-foreground">{todo.owner}</span>
+                )}
+                {todo.deadline && (
+                  <span className="text-[10px] text-muted-foreground">Due {todo.deadline}</span>
+                )}
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${priorityDot[todo.priority]}`}
+                />
+              </div>
             </div>
-          </div>
+          </label>
         </li>
       ))}
     </ul>

@@ -5,11 +5,15 @@ import { Button } from '../ui/button'
 interface PermissionsStepProps {
   permissions: { screen: string; mic: string }
   onRefresh: () => Promise<void>
+  stepNumber: number
+  totalSteps: number
 }
 
 export default function PermissionsStep({
   permissions,
-  onRefresh
+  onRefresh,
+  stepNumber,
+  totalSteps
 }: PermissionsStepProps): React.JSX.Element {
   const screenGranted = permissions.screen === 'granted'
   const micGranted = permissions.mic === 'granted'
@@ -27,7 +31,7 @@ export default function PermissionsStep({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-          Step 4 of 5
+          Step {stepNumber} of {totalSteps}
         </p>
         <h2 className="font-display text-[32px] leading-tight italic text-foreground/90">
           Grant permissions

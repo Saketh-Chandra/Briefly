@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import SearchBar from '../components/SearchBar'
 import FilterBar from '../components/FilterBar'
 import MeetingList from '../components/MeetingList'
+import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
 import {
   loadMeetingsAtom,
   runSearchAtom,
@@ -22,6 +23,7 @@ export default function Recordings(): React.JSX.Element {
   const searchTerm = useAtomValue(searchTermAtom)
   const isSearching = useAtomValue(isSearchingAtom)
   const searchResults = useAtomValue(searchResultsAtom)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
 
   useEffect(() => {
     void loadMeetings()
@@ -49,13 +51,18 @@ export default function Recordings(): React.JSX.Element {
   }, [loadMeetings])
 
   async function handleDelete(id: number): Promise<void> {
-    if (!window.confirm('Delete this recording?')) return
-    await window.api.deleteMeeting(id)
+    setDeleteId(id)
+  }
+
+  async function confirmDelete(): Promise<void> {
+    if (deleteId === null) return
+    await window.api.deleteMeeting(deleteId)
+    setDeleteId(null)
     void loadMeetings()
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-2xl px-6 py-8">
       <h1 className="mb-6 font-display text-2xl italic text-foreground/80">Recordings</h1>
 
       <div className="mb-5 flex flex-col gap-3">
@@ -73,7 +80,20 @@ export default function Recordings(): React.JSX.Element {
         </p>
       )}
 
-      <MeetingList meetings={filtered} onDelete={handleDelete} flat={!!searchTerm} />
+      <MeetingList
+        meetings={filtered}
+        onDelete={handleDelete}
+        flat={!!searchTerm}
+        emptyMessage={
+          searchTerm ? `No results for "${searchTerm}"` : 'No recordings yet.'
+        }
+      />
+
+      <DeleteMeetingDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }
