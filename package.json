@@ -31,7 +31,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "npm test -- --coverage",
     "pretest": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "start": "electron-vite preview",
