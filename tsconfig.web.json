@@ -10,6 +10,7 @@
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
+    "types": ["@testing-library/jest-dom"],
     "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {

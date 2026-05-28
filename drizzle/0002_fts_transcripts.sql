@@ -8,7 +8,3 @@ USING fts5(
   content,
   tokenize='unicode61'
 );
-
---> statement-breakpoint
--- Backfill is handled at runtime by rebuildSearchIndex() in db.ts
--- (called on first boot after migration when the table is empty).

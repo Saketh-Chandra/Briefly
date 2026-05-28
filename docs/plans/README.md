@@ -58,6 +58,18 @@ Electron App
 
 ---
 
+## Testing Rollout
+
+Use these docs for the testing rollout rather than the older product-phase docs above.
+
+| Phase | Description | Status |
+|---|---|---|
+| [Testing Phase 1](./testing-phase-1.md) | Vitest harness, first high-value slices in lanes 1-3, manual smoke checklist | In progress |
+| [Testing Phase 2](./testing-phase-2.md) | Expand automated coverage across renderer pages, renderer state, IPC handlers, and deferred browser-media-heavy seams | Planned |
+| [Testing Phase 3](./testing-phase-3.md) | Harden CI, regression confidence, release checklist ownership, and long-tail workflow coverage | Planned |
+
+---
+
 ## Project Structure (Current)
 
 ```

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Textarea } from './ui/textarea'
+import { api } from '@/lib/api'
 
 interface JournalPanelProps {
   meetingId: number
@@ -25,7 +26,7 @@ export default function JournalPanel({
     setValue(text)
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
-      void window.api.updateJournal(meetingId, text)
+      void api.updateJournal(meetingId, text)
     }, 600)
   }
 

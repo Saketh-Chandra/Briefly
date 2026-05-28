@@ -61,9 +61,11 @@ For the latest implementation snapshot see [docs/current-state.md](docs/current-
 ## Prerequisites
 
 - macOS 14.2+
-- Node.js 20+
+- Node.js 24+
 - [Bun](https://bun.sh) (used for installing and managing dependencies)
 - Screen Recording and Microphone permissions granted to the app
+
+The repo pins Node `24.16.0` in `.nvmrc` for local development and CI alignment.
 
 > **No Xcode or native toolchain is needed.** The capture pipeline is implemented entirely in Electron/Web APIs — there is no Swift binary.
 
@@ -290,6 +292,8 @@ Renderer (React)
 - [docs/current-state.md](docs/current-state.md) — latest implementation snapshot and pending work
 - [docs/context.md](docs/context.md) — full architecture and codebase reference
 - [docs/plans/README.md](docs/plans/README.md) — phased implementation plan
+- [docs/plans/testing-strategy.md](docs/plans/testing-strategy.md) — phase 1 test rollout, CI gate, and release smoke checklist
+- [docs/adr/0001-layered-testing-and-ci-gate.md](docs/adr/0001-layered-testing-and-ci-gate.md) — durable testing architecture and merge-gate decisions
 
 ---
 
@@ -298,8 +302,10 @@ Renderer (React)
 1. Fork the repo and create a feature branch.
 2. Install dependencies with `bun install`.
 3. Run `npm run typecheck`, `npm run lint`, and `npx fallow dead-code` before opening a PR.
-4. Keep PRs focused; one concern per PR.
-5. API keys and audio files are never committed — check `.gitignore` before staging.
+4. Follow [docs/plans/testing-strategy.md](docs/plans/testing-strategy.md) for the phase 1 testing rollout, CI gate, and release smoke checklist.
+5. Once the phase 1 test rollout lands, PRs must keep `npm test`, `npm run typecheck`, and `npm run lint` green.
+6. Keep PRs focused; one concern per PR.
+7. API keys and audio files are never committed — check `.gitignore` before staging.
 
 ---
 

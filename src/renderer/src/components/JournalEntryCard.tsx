@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from './ui/card'
 import { Button } from './ui/button'
 import JournalPanel from './JournalPanel'
 import type { Meeting } from '../../../main/lib/types'
+import { api } from '../lib/api'
 
 interface JournalEntryCardProps {
   meeting: Meeting
@@ -16,7 +17,7 @@ export default function JournalEntryCard({ meeting }: JournalEntryCardProps): Re
   const [journal, setJournal] = useState<string | null>(null)
 
   useEffect(() => {
-    window.api
+    api
       .getMeeting(meeting.id)
       .then((detail) => {
         setJournal(detail?.summary?.journal ?? null)

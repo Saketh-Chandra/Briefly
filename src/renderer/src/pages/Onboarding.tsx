@@ -10,6 +10,7 @@ import WhisperSetupStep from '../components/onboarding/WhisperSetupStep'
 import PermissionsStep from '../components/onboarding/PermissionsStep'
 import ReadyStep from '../components/onboarding/ReadyStep'
 import { isSupportedMacOSVersion } from '../lib/platform'
+import { api } from '../lib/api'
 
 const TOTAL_STEPS = 5
 
@@ -38,7 +39,7 @@ export default function Onboarding(): React.JSX.Element {
   })
 
   useEffect(() => {
-    window.api
+    api
       .getOsInfo()
       .then(({ darwinVersion }) => setSupportedOS(isSupportedMacOSVersion(darwinVersion)))
       .catch(() => setSupportedOS(true))
@@ -47,7 +48,7 @@ export default function Onboarding(): React.JSX.Element {
   // Refresh permissions whenever the user reaches the permissions step
   useEffect(() => {
     if (step === 3) {
-      window.api
+      api
         .checkPermissions()
         .then(setPermissions)
         .catch(() => {})
@@ -55,7 +56,7 @@ export default function Onboarding(): React.JSX.Element {
   }, [step])
 
   async function refreshPermissions(): Promise<void> {
-    const p = await window.api.checkPermissions()
+    const p = await api.checkPermissions()
     setPermissions(p)
   }
 
@@ -65,12 +66,12 @@ export default function Onboarding(): React.JSX.Element {
 
   async function handleComplete(): Promise<void> {
     if (baseURL.trim()) {
-      await window.api.saveSettings({
+      await api.saveSettings({
         llm: { baseURL, model, ...(apiVersion ? { apiVersion } : {}) },
         ...(apiKey ? { llmApiKey: apiKey } : {})
       })
     }
-    await window.api.saveSettings({
+    await api.saveSettings({
       whisperModel,
       onboardingComplete: true
     })

@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { api } from '@/lib/api'
 
 type TestState = 'idle' | 'loading' | 'ok' | 'error'
 
@@ -38,7 +39,7 @@ export default function LlmFields({
     setTestState('loading')
     setTestError('')
     try {
-      await window.api.testLlmConnection()
+      await api.testLlmConnection()
       setTestState('ok')
     } catch (err) {
       setTestState('error')

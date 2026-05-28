@@ -4,6 +4,7 @@ import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { initWhisperWorker } from '../../lib/whisper-worker'
+import { api } from '@/lib/api'
 
 const WHISPER_MODELS = [
   { id: 'onnx-community/whisper-tiny', label: 'Whisper Tiny', size: '~38 MB' },
@@ -72,7 +73,7 @@ export default function WhisperSetupStep({
     onReady(false)
 
     try {
-      const { modelCachePath } = await window.api.getPaths()
+      const { modelCachePath } = await api.getPaths()
       if (dlWorkerRef.current) dlWorkerRef.current.terminate()
       const worker = new Worker(new URL('../../workers/whisper.worker.ts', import.meta.url), {
         type: 'module'

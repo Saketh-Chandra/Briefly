@@ -33,6 +33,7 @@ import {
 import LlmFields from '../components/LlmFields'
 import type { ProxySettings } from '../../../main/lib/types'
 import { initWhisperWorker } from '../lib/whisper-worker'
+import { api } from '../lib/api'
 
 const WHISPER_MODELS = [
   { id: 'onnx-community/whisper-large-v3-turbo', label: 'Whisper Large v3 Turbo (~1.6 GB)' },
@@ -143,7 +144,7 @@ export default function Settings(): React.JSX.Element {
   const [noProxy, setNoProxy] = useState('')
 
   useEffect(() => {
-    window.api
+    api
       .getSettings()
       .then((s) => {
         setBaseURL(s.llm.baseURL)
@@ -170,7 +171,7 @@ export default function Settings(): React.JSX.Element {
       })
       .catch(console.error)
 
-    window.api
+    api
       .getDiskUsage()
       .then((d) => {
         setDiskUsage(d.audioBytes)
@@ -182,7 +183,7 @@ export default function Settings(): React.JSX.Element {
   useEffect(() => {
     // First check filesystem (fast); if absent, check browser Cache API
     // (model files are stored there when useBrowserCache=true in the worker).
-    window.api
+    api
       .getModelStatus(whisperModel)
       .then(async (s) => {
         if (s.present) {
@@ -198,7 +199,7 @@ export default function Settings(): React.JSX.Element {
   }, [whisperModel])
 
   async function handleSaveLlm(): Promise<void> {
-    await window.api.saveSettings({
+    await api.saveSettings({
       llm: { baseURL, model, ...(apiVersion ? { apiVersion } : {}) },
       ...(apiKey ? { llmApiKey: apiKey } : {})
     })
@@ -206,7 +207,7 @@ export default function Settings(): React.JSX.Element {
   }
 
   async function handleSaveWhisper(): Promise<void> {
-    await window.api.saveSettings({ whisperModel, whisperLanguage: whisperLang })
+    await api.saveSettings({ whisperModel, whisperLanguage: whisperLang })
   }
 
   async function handleSaveProxy(): Promise<void> {
@@ -233,12 +234,12 @@ export default function Settings(): React.JSX.Element {
       if (pacUrl.trim()) proxy.pacUrl = pacUrl.trim()
       if (noProxy.trim()) proxy.noProxy = noProxy.trim()
     }
-    await window.api.saveSettings({ proxy })
+    await api.saveSettings({ proxy })
   }
 
   async function handleDeleteModel(): Promise<void> {
     // Delete from filesystem (no-op if model only lives in browser cache)
-    await window.api.deleteModel(whisperModel)
+    await api.deleteModel(whisperModel)
     // Delete from browser Cache API (where useBrowserCache=true stores files)
     if ('caches' in window) {
       try {
@@ -262,7 +263,7 @@ export default function Settings(): React.JSX.Element {
     setDlError('')
 
     try {
-      const { modelCachePath } = await window.api.getPaths()
+      const { modelCachePath } = await api.getPaths()
 
       if (dlWorkerRef.current) dlWorkerRef.current.terminate()
       const worker = new Worker(new URL('../workers/whisper.worker.ts', import.meta.url), {
@@ -289,7 +290,7 @@ export default function Settings(): React.JSX.Element {
       })
 
       const label = WHISPER_MODELS.find((m) => m.id === whisperModel)?.label ?? whisperModel
-      window.api.showNotification('Model downloaded', `${label} is ready to use.`)
+      api.showNotification('Model downloaded', `${label} is ready to use.`)
     } catch (err) {
       dlWorkerRef.current?.terminate()
       dlWorkerRef.current = null
@@ -298,7 +299,7 @@ export default function Settings(): React.JSX.Element {
       setDlError(message)
 
       const label = WHISPER_MODELS.find((m) => m.id === whisperModel)?.label ?? whisperModel
-      window.api.showNotification(
+      api.showNotification(
         `Download failed — ${label}`,
         message.length > 200 ? message.slice(0, 200) + '…' : message
       )
@@ -310,7 +311,7 @@ export default function Settings(): React.JSX.Element {
     setPingState('testing')
     setPingError('')
     try {
-      const result = await window.api.testMirror(hfEndpoint.trim())
+      const result = await api.testMirror(hfEndpoint.trim())
       if (result.ok) {
         setPingState('ok')
       } else {
@@ -331,11 +332,11 @@ export default function Settings(): React.JSX.Element {
     setDlError('')
 
     const label = WHISPER_MODELS.find((m) => m.id === whisperModel)?.label ?? whisperModel
-    window.api.showNotification('Download cancelled', `${label} download was stopped.`)
+    api.showNotification('Download cancelled', `${label} download was stopped.`)
   }
 
   async function handleClearAll(): Promise<void> {
-    await window.api.clearAllRecordings()
+    await api.clearAllRecordings()
     setDiskUsage(0)
     setClearOpen(false)
   }
@@ -501,7 +502,7 @@ export default function Settings(): React.JSX.Element {
               variant="ghost"
               size="icon"
               className="ml-2 h-7 w-7 shrink-0"
-              onClick={() => void window.api.revealInFinder()}
+              onClick={() => void api.revealInFinder()}
               title="Reveal in Finder"
               aria-label="Reveal in Finder"
             >
@@ -534,7 +535,7 @@ export default function Settings(): React.JSX.Element {
               variant="outline"
               size="sm"
               onClick={() => {
-                void window.api.saveSettings({ onboardingComplete: false }).then(() => {
+                void api.saveSettings({ onboardingComplete: false }).then(() => {
                   navigate('/onboarding')
                 })
               }}
@@ -582,7 +583,7 @@ export default function Settings(): React.JSX.Element {
                 onClick={() => {
                   const normalised = hfEndpoint.trim().replace(/\/$/, '')
                   setHfEndpoint(normalised)
-                  void window.api.saveSettings({ hfEndpoint: normalised || undefined })
+                  void api.saveSettings({ hfEndpoint: normalised || undefined })
                 }}
               >
                 Save

@@ -36,6 +36,7 @@ import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
 import { FocusScope } from '@radix-ui/react-focus-scope'
 import { useTranscription } from '../contexts/TranscriptionContext'
 import type { MeetingDetail } from '../../../main/lib/types'
+import { api } from '../lib/api'
 
 export default function Transcript(): React.JSX.Element {
   const { id } = useParams<{ id: string }>()
@@ -59,7 +60,7 @@ export default function Transcript(): React.JSX.Element {
     txState.meetingId === meetingId && !['idle', 'done', 'error'].includes(txState.stage)
 
   const load = useCallback(async () => {
-    const detail = await window.api.getMeeting(meetingId)
+    const detail = await api.getMeeting(meetingId)
     setMeeting(detail)
     setLoading(false)
   }, [meetingId])
@@ -70,13 +71,13 @@ export default function Transcript(): React.JSX.Element {
   }, [load])
 
   useEffect(() => {
-    const unsubCapture = window.api.onCaptureEvent((event) => {
+    const unsubCapture = api.onCaptureEvent((event) => {
       if (event.type === 'stopped' || event.type === 'error') {
         void load()
       }
     })
 
-    const unsubTranscription = window.api.onTranscriptionStatus((event) => {
+    const unsubTranscription = api.onTranscriptionStatus((event) => {
       if (event.meetingId === meetingId) {
         void load()
       }
@@ -105,14 +106,14 @@ export default function Transcript(): React.JSX.Element {
 
   // Reload on LLM done event from main
   useEffect(() => {
-    const unsub = window.api.onLlmDone((e) => {
+    const unsub = api.onLlmDone((e) => {
       if (e.meetingId === meetingId) void load()
     })
     return unsub
   }, [meetingId, load])
 
   async function handleDelete(): Promise<void> {
-    await window.api.deleteMeeting(meetingId)
+    await api.deleteMeeting(meetingId)
     setDeleteOpen(false)
     navigate('/recordings')
   }
@@ -193,7 +194,7 @@ export default function Transcript(): React.JSX.Element {
 
   async function handleRerun(): Promise<void> {
     reset() // reset atom to idle and clean up any stale IPC subscriptions
-    await window.api.resetForReprocessing(meetingId)
+    await api.resetForReprocessing(meetingId)
     await load()
     void startPipeline(meetingId)
   }
@@ -203,7 +204,7 @@ export default function Transcript(): React.JSX.Element {
     setLoadingScreenshots(true)
     try {
       const urls = await Promise.all(
-        meeting.screenshots.map((s) => window.api.readScreenshot(s.path))
+        meeting.screenshots.map((s) => api.readScreenshot(s.path))
       )
       setScreenshotUrls(urls)
     } finally {
@@ -214,7 +215,7 @@ export default function Transcript(): React.JSX.Element {
   async function handleCopyImage(dataUrl: string): Promise<void> {
     if (!dataUrl) return
     try {
-      await window.api.writeImageToClipboard(dataUrl)
+      await api.writeImageToClipboard(dataUrl)
       setHasCopiedImage(true)
       setTimeout(() => setHasCopiedImage(false), 2000)
     } catch (e) {

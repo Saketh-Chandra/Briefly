@@ -13,6 +13,7 @@ import {
   searchTermAtom,
   isSearchingAtom
 } from '../atoms/pages'
+import { api } from '../lib/api'
 import { useDeleteMeeting } from '../hooks/useDeleteMeeting'
 
 export default function Recordings(): React.JSX.Element {
@@ -36,7 +37,7 @@ export default function Recordings(): React.JSX.Element {
 
   // Reload when a recording saves
   useEffect(() => {
-    const unsub = window.api.onCaptureEvent((event) => {
+    const unsub = api.onCaptureEvent((event) => {
       if (event.type === 'stopped') void loadMeetings()
     })
     return unsub
@@ -44,12 +45,12 @@ export default function Recordings(): React.JSX.Element {
 
   // Reload when transcription or LLM finishes so status badges update
   useEffect(() => {
-    const unsub = window.api.onTranscriptionStatus(() => void loadMeetings())
+    const unsub = api.onTranscriptionStatus(() => void loadMeetings())
     return unsub
   }, [loadMeetings])
 
   useEffect(() => {
-    const unsub = window.api.onLlmDone(() => void loadMeetings())
+    const unsub = api.onLlmDone(() => void loadMeetings())
     return unsub
   }, [loadMeetings])
 

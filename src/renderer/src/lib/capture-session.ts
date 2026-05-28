@@ -15,6 +15,7 @@
  */
 
 import type { CaptureEvent } from '../../../main/lib/types'
+import { api } from './api'
 
 export type { CaptureEvent }
 
@@ -98,14 +99,14 @@ export class CaptureSession {
       this.mediaRecorder.ondataavailable = async (e: BlobEvent) => {
         if (e.data.size > 0) {
           const buffer = await e.data.arrayBuffer()
-          await window.api.writeAudioChunk(this.sessionId, buffer)
+          await api.writeAudioChunk(this.sessionId, buffer)
         }
       }
 
       this.mediaRecorder.onstop = async () => {
         this.clearLevel()
         const duration_s = Math.round((Date.now() - this.startTime) / 1000)
-        await window.api.finalizeRecording(this.sessionId, duration_s)
+        await api.finalizeRecording(this.sessionId, duration_s)
         this.emit({ type: 'stopped', duration_s, path: '' })
         this.dispose()
       }
@@ -135,7 +136,7 @@ export class CaptureSession {
 
   /** Capture a screenshot via main process (desktopCapturer high-res thumbnail). */
   async takeScreenshot(): Promise<void> {
-    const path = await window.api.takeScreenshot()
+    const path = await api.takeScreenshot()
     if (path) {
       this.emit({ type: 'screenshot_done', path })
     }

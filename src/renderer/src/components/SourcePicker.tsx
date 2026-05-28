@@ -19,6 +19,7 @@ import {
 } from './ui/dropdown-menu'
 import { selectedSourceIdAtom } from '../atoms/recording'
 import type { CaptureSource } from '../../../main/lib/types'
+import { api } from '@/lib/api'
 
 export default function SourcePicker(): React.JSX.Element {
   const [sources, setSources] = useState<CaptureSource[]>([])
@@ -28,7 +29,7 @@ export default function SourcePicker(): React.JSX.Element {
   async function loadSources(): Promise<void> {
     setLoading(true)
     try {
-      const srcs = await window.api.getSources()
+      const srcs = await api.getSources()
       setSources(srcs)
       // Auto-select first screen if nothing chosen yet (or previous choice gone)
       if (srcs.length > 0 && (!selectedId || !srcs.find((s) => s.id === selectedId))) {

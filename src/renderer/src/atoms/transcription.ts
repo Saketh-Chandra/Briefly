@@ -1,6 +1,7 @@
 import { atom } from 'jotai'
 import type { TranscriptChunk } from '../../../main/lib/types'
 import { initWhisperWorker } from '../lib/whisper-worker'
+import { api } from '../lib/api'
 
 // ---------------------------------------------------------------------------
 // Audio decode helper — must run in renderer main thread (OfflineAudioContext
@@ -89,7 +90,7 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
 
   set(transcriptionAtom, { ...initialTranscriptionState, meetingId, stage: 'downloading-model' })
 
-  const unsubLlm = window.api.onLlmProgress((event) => {
+  const unsubLlm = api.onLlmProgress((event) => {
     if (event.meetingId === meetingId) {
       set(
         transcriptionAtom,
@@ -103,7 +104,7 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
     }
   })
 
-  const unsubDone = window.api.onLlmDone((event) => {
+  const unsubDone = api.onLlmDone((event) => {
     if (event.meetingId === meetingId) {
       set(
         transcriptionAtom,
@@ -123,8 +124,8 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
   unsubDoneRef = unsubDone
 
   try {
-    const { modelCachePath } = await window.api.getPaths()
-    const settings = await window.api.getSettings()
+    const { modelCachePath } = await api.getPaths()
+    const settings = await api.getSettings()
 
     // Pre-flight: ensure the model is cached before spinning up the worker.
     // transformers.js uses the browser Cache API (key: 'briefly-transformers-v2')
@@ -169,10 +170,10 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       progress: 0
     }))
 
-    const { audioPath } = await window.api.startTranscription(meetingId)
+    const { audioPath } = await api.startTranscription(meetingId)
 
     // Read audio in main process after the main process has validated the file.
-    const audioData = await window.api.readAudio(audioPath)
+    const audioData = await api.readAudio(audioPath)
 
     // Decode Opus → 16kHz mono Float32 PCM in the renderer main thread.
     // OfflineAudioContext is NOT available in Web Workers; it must run here.
@@ -209,7 +210,7 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       )
     })
 
-    await window.api.saveTranscript({
+    await api.saveTranscript({
       meetingId,
       content: transcriptText,
       chunks,
@@ -225,7 +226,7 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       })
     )
 
-    await window.api.processTranscript(meetingId)
+    await api.processTranscript(meetingId)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     set(

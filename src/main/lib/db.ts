@@ -14,17 +14,50 @@ type DrizzleDb = ReturnType<typeof drizzle>
 let _db: DrizzleDb | null = null
 let _sqlite: InstanceType<typeof Database> | null = null
 
+// ---------------------------------------------------------------------------
+// Test seam — never called in production builds
+// ---------------------------------------------------------------------------
+
+/**
+ * Override the DB path and reset the singleton.
+ * Pass ':memory:' for in-memory SQLite in tests.
+ * Migrations are applied from process.cwd()/drizzle when this is set.
+ */
+export function _setTestDbPath(path: string): void {
+  if (_sqlite) {
+    _sqlite.close()
+    _sqlite = null
+  }
+  _db = null
+  _testDbPath = path
+}
+
+/** Reset the singleton and clear the test override. */
+export function _resetTestDb(): void {
+  if (_sqlite) {
+    _sqlite.close()
+    _sqlite = null
+  }
+  _db = null
+  _testDbPath = null
+}
+
+let _testDbPath: string | null = null
+
 export function getDb(): DrizzleDb {
   if (!_db) {
-    const dbPath = join(app.getPath('userData'), 'briefly.db')
+    const dbPath = _testDbPath ?? join(app.getPath('userData'), 'briefly.db')
     _sqlite = new Database(dbPath)
     _sqlite.pragma('journal_mode = WAL')
     _sqlite.pragma('foreign_keys = ON')
     _db = drizzle(_sqlite, { schema: { meetings, transcripts, summaries, screenshots } })
-    // Resolve migrations folder: dev = repo root, prod = asar-unpacked resources
-    const migrationsFolder = is.dev
-      ? join(__dirname, '../../drizzle')
-      : join(process.resourcesPath, 'drizzle')
+    // Resolve migrations folder: test uses cwd/drizzle, dev uses repo root, prod uses asar-unpacked resources
+    const migrationsFolder =
+      _testDbPath !== null
+        ? join(process.cwd(), 'drizzle')
+        : is.dev
+          ? join(__dirname, '../../drizzle')
+          : join(process.resourcesPath, 'drizzle')
     migrate(_db, { migrationsFolder })
     // Ensure the FTS5 search index exists — CREATE VIRTUAL TABLE is outside Drizzle's
     // model so we guarantee it here with IF NOT EXISTS regardless of migration state.

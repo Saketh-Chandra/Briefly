@@ -3,6 +3,7 @@ import type { Meeting, MeetingStatus } from '../../../main/lib/types'
 import { transcriptionAtom } from './transcription'
 import type { TranscriptionState } from './transcription'
 import { toLocalISODate } from '../lib/format'
+import { api } from '../lib/api'
 
 // ── Shared meetings list ──────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ export const meetingsAtom = atom<Meeting[]>([])
 
 /** Fetch all meetings from the database and populate meetingsAtom. */
 export const loadMeetingsAtom = atom(null, async (_get, set): Promise<void> => {
-  const all = await window.api.getMeetings()
+  const all = await api.getMeetings()
   set(meetingsAtom, all)
 })
 
@@ -67,7 +68,7 @@ export const runSearchAtom = atom(null, async (_get, set, query: string): Promis
     return
   }
   set(isSearchingAtom, true)
-  const results = await window.api.searchMeetings(query)
+  const results = await api.searchMeetings(query)
   set(searchResultsAtom, results)
   set(isSearchingAtom, false)
 })
@@ -116,7 +117,7 @@ export const journalMeetingsAtom = atom<Meeting[]>([])
 export const loadJournalMeetingsAtom = atom(
   null,
   async (_get, set, date: string): Promise<void> => {
-    const result = await window.api.getMeetingsByDate(date)
+    const result = await api.getMeetingsByDate(date)
     set(journalMeetingsAtom, result)
   }
 )
