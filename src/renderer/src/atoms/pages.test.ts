@@ -258,10 +258,7 @@ describe('filteredMeetingsAtom', () => {
 
   it('applies status filter on top of FTS results', () => {
     const store = createStore()
-    const fts = [
-      makeMeeting({ id: 1, status: 'done' }),
-      makeMeeting({ id: 2, status: 'recorded' })
-    ]
+    const fts = [makeMeeting({ id: 1, status: 'done' }), makeMeeting({ id: 2, status: 'recorded' })]
     store.set(meetingsAtom, fts)
     store.set(searchTermAtom, 'query')
     store.set(searchResultsAtom, fts)

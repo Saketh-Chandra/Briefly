@@ -138,7 +138,12 @@ describe('storage IPC — meeting detail', () => {
 
   it('storage:get-meeting includes transcript when one exists', async () => {
     const id = seedMeeting()
-    insertTranscript({ meetingId: id, content: 'Meeting content', chunks: null, model: 'whisper-base' })
+    insertTranscript({
+      meetingId: id,
+      content: 'Meeting content',
+      chunks: null,
+      model: 'whisper-base'
+    })
     const detail = (await invoke('storage:get-meeting', id)) as { transcript: { content: string } }
     expect(detail.transcript?.content).toBe('Meeting content')
   })
@@ -290,5 +295,147 @@ describe('storage IPC — search', () => {
     const results = (await invoke('storage:search', 'Roadmap')) as { title: string }[]
     expect(results.length).toBeGreaterThanOrEqual(1)
     expect(results[0].title).toContain('Roadmap')
+  })
+
+  it('storage:search returns results from multiple meetings when both match', async () => {
+    const id1 = seedMeeting()
+    const id2 = seedMeeting()
+    insertTranscript({
+      meetingId: id1,
+      content: 'architecture review session',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+    insertTranscript({
+      meetingId: id2,
+      content: 'architecture planning notes',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+    const results = (await invoke('storage:search', 'architecture')) as { id: number }[]
+    const ids = results.map((r) => r.id)
+    expect(ids).toContain(id1)
+    expect(ids).toContain(id2)
+  })
+
+  it('storage:search returns empty array for an empty query string', async () => {
+    seedMeeting()
+    const results = (await invoke('storage:search', '')) as unknown[]
+    expect(results).toHaveLength(0)
+  })
+})
+
+describe('storage IPC — todo update persistence', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    registerStorageHandlers()
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('storage:update-todo marks a todo as done and round-trips through get-meeting', async () => {
+    const id = seedMeeting()
+    insertTranscript({ meetingId: id, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId: id,
+      summary: 'summary',
+      todos: [
+        { text: 'Buy milk', owner: null, deadline: null, priority: 'low', done: false },
+        { text: 'Write tests', owner: null, deadline: null, priority: 'high', done: false }
+      ],
+      keyDecisions: null,
+      participants: null,
+      journal: null,
+      llmModel: 'gpt-4o'
+    })
+
+    await invoke('storage:update-todo', id, 1, true)
+
+    const detail = (await invoke('storage:get-meeting', id)) as {
+      summary: { todos: { text: string; done: boolean }[] }
+    }
+    expect(detail.summary.todos[0].done).toBe(false)
+    expect(detail.summary.todos[1].done).toBe(true)
+  })
+
+  it('storage:update-todo is a no-op when the index is out of range', async () => {
+    const id = seedMeeting()
+    insertTranscript({ meetingId: id, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId: id,
+      summary: 'summary',
+      todos: [{ text: 'Only task', owner: null, deadline: null, priority: 'low', done: false }],
+      keyDecisions: null,
+      participants: null,
+      journal: null,
+      llmModel: 'gpt-4o'
+    })
+
+    // index 99 is out of range — should not throw and should not mutate data
+    expect(() => invoke('storage:update-todo', id, 99, true)).not.toThrow()
+    const detail = (await invoke('storage:get-meeting', id)) as {
+      summary: { todos: { done: boolean }[] }
+    }
+    expect(detail.summary.todos[0].done).toBe(false)
+  })
+})
+
+describe('storage IPC — journal update persistence', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    registerStorageHandlers()
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('storage:update-journal replaces journal text and is visible in get-meeting', async () => {
+    const id = seedMeeting()
+    insertTranscript({ meetingId: id, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId: id,
+      summary: 'summary',
+      todos: null,
+      keyDecisions: null,
+      participants: null,
+      journal: 'original journal entry',
+      llmModel: 'gpt-4o'
+    })
+
+    await invoke('storage:update-journal', id, 'updated journal entry')
+
+    const detail = (await invoke('storage:get-meeting', id)) as {
+      summary: { journal: string }
+    }
+    expect(detail.summary.journal).toBe('updated journal entry')
+  })
+
+  it('storage:update-journal replaces previous journal text on repeated calls', async () => {
+    const id = seedMeeting()
+    insertTranscript({ meetingId: id, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId: id,
+      summary: 'summary',
+      todos: null,
+      keyDecisions: null,
+      participants: null,
+      journal: 'first entry',
+      llmModel: 'gpt-4o'
+    })
+
+    await invoke('storage:update-journal', id, 'second entry')
+    await invoke('storage:update-journal', id, 'third entry')
+
+    const detail = (await invoke('storage:get-meeting', id)) as {
+      summary: { journal: string }
+    }
+    expect(detail.summary.journal).toBe('third entry')
   })
 })

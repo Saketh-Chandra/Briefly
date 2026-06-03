@@ -35,7 +35,13 @@ vi.mock('fs', async (importOriginal) => {
   }
 })
 
-import { _setTestDbPath, _resetTestDb, insertMeeting, getMeetingById, updateMeetingStatus } from '../lib/db'
+import {
+  _setTestDbPath,
+  _resetTestDb,
+  insertMeeting,
+  getMeetingById,
+  updateMeetingStatus
+} from '../lib/db'
 import { registerTranscriptionHandlers } from './transcription'
 
 function seedMeeting(audioPath = '/tmp/real-audio.webm'): number {
@@ -192,5 +198,77 @@ describe('IPC transcription:start — missing audio file', () => {
       'transcription:status',
       expect.objectContaining({ meetingId, status: 'error' })
     )
+  })
+})
+
+describe('IPC transcription:model-status — absent model directory', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    // existsSync returns false → model directory is not present
+    mockExistsSync.mockReturnValue(false)
+    registerTranscriptionHandlers(makeNullSender)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('returns { present: false, sizeBytes: 0 } when the model directory does not exist', async () => {
+    const handler = handlers.get('transcription:model-status')!
+    const result = await handler(null, 'onnx-community/whisper-tiny')
+    expect(result).toEqual({ present: false, sizeBytes: 0 })
+  })
+})
+
+describe('IPC transcription:model-status — present model directory', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    // existsSync returns true, statSync returns a 512-byte file for the single entry
+    mockExistsSync.mockReturnValue(true)
+    mockStatSync.mockReturnValue({ size: 512 })
+    registerTranscriptionHandlers(makeNullSender)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('returns present: true when the model directory exists', async () => {
+    // The real model-status handler calls readdirSync inside dirSizeBytes.
+    // Since existsSync returns true but the dir doesn't really exist,
+    // stub readdirSync to return an empty list (no files, sizeBytes = 0).
+    vi.spyOn(await import('fs'), 'readdirSync').mockReturnValue([])
+
+    const handler = handlers.get('transcription:model-status')!
+    const result = (await handler(null, 'onnx-community/whisper-tiny')) as {
+      present: boolean
+      sizeBytes: number
+    }
+    expect(result.present).toBe(true)
+    vi.restoreAllMocks()
+  })
+})
+
+describe('IPC transcription:delete-model', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    registerTranscriptionHandlers(makeNullSender)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('is a no-op when the model directory does not exist', async () => {
+    mockExistsSync.mockReturnValue(false)
+    const handler = handlers.get('transcription:delete-model')!
+    // Should resolve without throwing even when the directory is absent
+    await expect(handler(null, 'onnx-community/whisper-tiny')).resolves.not.toThrow()
   })
 })

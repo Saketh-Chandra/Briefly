@@ -12,8 +12,8 @@ export default defineConfig({
           include: ['src/main/**/*.test.ts'],
           environment: 'node',
           globals: true,
-          pool: 'forks', // native modules (better-sqlite3) require forks pool
-        },
+          pool: 'forks' // native modules (better-sqlite3) require forks pool
+        }
       },
       // ── Lane 1 (renderer-side pure unit) + Lane 2 (renderer component) ───────
       {
@@ -21,17 +21,17 @@ export default defineConfig({
         resolve: {
           alias: {
             '@': resolve(__dirname, 'src/renderer/src'),
-            '@renderer': resolve(__dirname, 'src/renderer/src'),
-          },
+            '@renderer': resolve(__dirname, 'src/renderer/src')
+          }
         },
         test: {
           name: 'renderer',
           include: ['src/renderer/src/**/*.test.{ts,tsx}'],
           environment: 'jsdom',
           globals: true,
-          setupFiles: ['src/test/setup-renderer.ts'],
-        },
-      },
-    ],
-  },
+          setupFiles: ['src/test/setup-renderer.ts']
+        }
+      }
+    ]
+  }
 })

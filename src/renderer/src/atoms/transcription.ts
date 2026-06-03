@@ -164,11 +164,14 @@ export const startPipelineAtom = atom(null, async (get, set, meetingId: number):
       onProgress: (progress) =>
         set(transcriptionAtom, (prev): TranscriptionState => ({ ...prev, progress }))
     })
-    set(transcriptionAtom, (prev): TranscriptionState => ({
-      ...prev,
-      stage: 'transcribing',
-      progress: 0
-    }))
+    set(
+      transcriptionAtom,
+      (prev): TranscriptionState => ({
+        ...prev,
+        stage: 'transcribing',
+        progress: 0
+      })
+    )
 
     const { audioPath } = await api.startTranscription(meetingId)
 

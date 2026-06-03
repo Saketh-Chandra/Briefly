@@ -18,7 +18,7 @@ const CHUNK_OVERLAP_CHARS = 800
 // Chunking helpers
 // ---------------------------------------------------------------------------
 
-function chunkText(text: string): string[] {
+export function chunkText(text: string): string[] {
   if (text.length <= CHUNK_THRESHOLD_CHARS) return [text]
   const chunks: string[] = []
   let start = 0

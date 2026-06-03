@@ -113,7 +113,14 @@ export default function Onboarding(): React.JSX.Element {
           />
         )
       case 3:
-        return <PermissionsStep stepNumber={4} totalSteps={TOTAL_STEPS} permissions={permissions} onRefresh={refreshPermissions} />
+        return (
+          <PermissionsStep
+            stepNumber={4}
+            totalSteps={TOTAL_STEPS}
+            permissions={permissions}
+            onRefresh={refreshPermissions}
+          />
+        )
       case 4:
         return (
           <ReadyStep

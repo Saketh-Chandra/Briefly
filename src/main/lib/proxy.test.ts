@@ -76,7 +76,9 @@ describe('applyProxy — mode: manual / HTTP proxy', () => {
     await applyProxy(settings)
     const config = mockSetProxy.mock.calls[0][0] as Electron.ProxyConfig
     expect(config.mode).toBe('fixed_servers')
-    expect((config as { proxyRules: string }).proxyRules).toContain('http=http://proxy.corp.example:8080')
+    expect((config as { proxyRules: string }).proxyRules).toContain(
+      'http=http://proxy.corp.example:8080'
+    )
   })
 
   it('includes https rules when useHttpForHttps is true', async () => {

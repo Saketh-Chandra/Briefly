@@ -18,12 +18,7 @@ import {
   Calendar
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
-} from '../components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
 import { Separator } from '../components/ui/separator'
 import PipelineStatus from '../components/PipelineStatus'
@@ -124,8 +119,12 @@ export default function Transcript(): React.JSX.Element {
     if (chunks && chunks.length > 0) {
       text = chunks
         .map((c) => {
-          const m = Math.floor(c.start / 60).toString().padStart(2, '0')
-          const s = Math.floor(c.start % 60).toString().padStart(2, '0')
+          const m = Math.floor(c.start / 60)
+            .toString()
+            .padStart(2, '0')
+          const s = Math.floor(c.start % 60)
+            .toString()
+            .padStart(2, '0')
           return `[${m}:${s}] ${c.text}`
         })
         .join('\n')
@@ -150,8 +149,12 @@ export default function Transcript(): React.JSX.Element {
       m.transcript?.chunks && m.transcript.chunks.length > 0
         ? m.transcript.chunks
             .map((c) => {
-              const min = Math.floor(c.start / 60).toString().padStart(2, '0')
-              const sec = Math.floor(c.start % 60).toString().padStart(2, '0')
+              const min = Math.floor(c.start / 60)
+                .toString()
+                .padStart(2, '0')
+              const sec = Math.floor(c.start % 60)
+                .toString()
+                .padStart(2, '0')
               return `[${min}:${sec}] ${c.text}`
             })
             .join('\n')
@@ -203,9 +206,7 @@ export default function Transcript(): React.JSX.Element {
     if (!meeting?.screenshots?.length) return
     setLoadingScreenshots(true)
     try {
-      const urls = await Promise.all(
-        meeting.screenshots.map((s) => api.readScreenshot(s.path))
-      )
+      const urls = await Promise.all(meeting.screenshots.map((s) => api.readScreenshot(s.path)))
       setScreenshotUrls(urls)
     } finally {
       setLoadingScreenshots(false)
@@ -260,7 +261,13 @@ export default function Transcript(): React.JSX.Element {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Go back" onClick={() => navigate(-1)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Go back"
+          onClick={() => navigate(-1)}
+        >
           <ArrowLeft size={15} />
         </Button>
         <div className="min-w-0 flex-1">
@@ -452,211 +459,211 @@ export default function Transcript(): React.JSX.Element {
               style={{ background: 'var(--briefly-lightbox-bg)', backdropFilter: 'blur(2px)' }}
               onClick={() => setLightboxIdx(null)}
             >
-            {/* Top HUD */}
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20"
-              style={{
-                background:
-                  'linear-gradient(to bottom, var(--briefly-lightbox-fade) 0%, transparent 100%)'
-              }}
-            />
-            <div
-              className="absolute inset-x-0 top-0 z-20 flex h-14 items-center justify-between pl-[72px] pr-4 [-webkit-app-region:drag]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center sm:w-40">
-                <span className="font-mono text-[11px] tracking-[0.2em] text-white/40 uppercase">
-                  {String(lightboxIdx + 1).padStart(2, '0')} /{' '}
-                  {String(screenshotUrls.length).padStart(2, '0')}
-                </span>
-              </div>
-
-              {meeting.screenshots[lightboxIdx]?.taken_at && (
-                <span className="hidden w-48 text-center font-mono text-[11px] text-white/30 sm:block flex-1">
-                  {format(
-                    parseISO(meeting.screenshots[lightboxIdx].taken_at),
-                    'MMM d, yyyy  HH:mm:ss'
-                  )}
-                </span>
-              )}
-
-              <div className="flex items-center justify-end gap-1 sm:w-40">
-                <button
-                  onClick={() => setShowInfo(!showInfo)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-150 [-webkit-app-region:no-drag] ${showInfo ? 'bg-white/20 text-white' : 'text-white/40 hover:bg-white/10 hover:text-white/90'}`}
-                  aria-label="Info"
-                  title="Image Info"
-                >
-                  <Info size={14} strokeWidth={1.5} />
-                </button>
-                <button
-                  onClick={() => handleCopyImage(screenshotUrls[lightboxIdx])}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-white/10 hover:text-white/90 [-webkit-app-region:no-drag]"
-                  aria-label="Copy"
-                  title="Copy Image"
-                >
-                  {hasCopiedImage ? (
-                    <Check size={14} strokeWidth={2} className="text-foreground/80" />
-                  ) : (
-                    <Copy size={14} strokeWidth={1.5} />
-                  )}
-                </button>
-                <a
-                  href={screenshotUrls[lightboxIdx]}
-                  download={`briefly-screenshot-${format(parseISO(meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()), 'yyyy-MM-dd-HHmmss')}.png`}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-white/10 hover:text-white/90 [-webkit-app-region:no-drag]"
-                  aria-label="Download"
-                  title="Download Image"
-                >
-                  <Download size={14} strokeWidth={1.5} />
-                </a>
-                <div className="mx-2 h-4 w-[1px] bg-white/20" />
-                <button
-                  onClick={() => setLightboxIdx(null)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-red-500/20 hover:text-red-400 [-webkit-app-region:no-drag]"
-                  aria-label="Close"
-                >
-                  <X size={14} strokeWidth={2} />
-                </button>
-              </div>
-            </div>
-
-            {/* Right side floating Info Panel */}
-            {showInfo && (
-              <div className="absolute right-6 top-20 z-30 w-72 overflow-hidden rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4">
-                <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/70">
-                  Image Details
-                </h3>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 text-sm text-white/80">
-                    <Monitor size={14} className="text-white/40" />
-                    <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
-                        Resolution
-                      </div>
-                      <div className="font-mono">
-                        {imgDims[lightboxIdx]
-                          ? `${imgDims[lightboxIdx].w} × ${imgDims[lightboxIdx].h}`
-                          : '—'}
-                      </div>
-                    </div>
-                  </div>
-                  <Separator className="bg-white/5" />
-                  <div className="flex items-center gap-3 text-sm text-white/80">
-                    <Calendar size={14} className="text-white/40" />
-                    <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
-                        Captured At
-                      </div>
-                      <div className="font-mono">
-                        {format(
-                          parseISO(
-                            meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()
-                          ),
-                          'PPpp'
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <Separator className="bg-white/5" />
-                  <div className="flex items-center gap-3 text-sm text-white/80">
-                    <HardDrive size={14} className="text-white/40" />
-                    <div>
-                      <div className="text-white/50 text-[10px] uppercase tracking-wider">
-                        Format & Size
-                      </div>
-                      <div className="font-mono">
-                        PNG •{' '}
-                        {Math.round(
-                          (((screenshotUrls[lightboxIdx].length - 22) * 0.75) / 1024 / 1024) * 10
-                        ) / 10}{' '}
-                        MB
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Image — fills the full screen */}
-            <div
-              className="flex flex-1 items-center justify-center overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                key={lightboxIdx}
-                src={screenshotUrls[lightboxIdx]}
-                alt={`Screenshot ${lightboxIdx + 1}`}
-                className="lightbox-image max-h-full max-w-full object-contain"
-                style={{ maxHeight: 'calc(100vh - 100px)' }}
-                onLoad={(e) => {
-                  const w = e.currentTarget.naturalWidth
-                  const h = e.currentTarget.naturalHeight
-                  setImgDims((prev) => ({ ...prev, [lightboxIdx]: { w, h } }))
+              {/* Top HUD */}
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20"
+                style={{
+                  background:
+                    'linear-gradient(to bottom, var(--briefly-lightbox-fade) 0%, transparent 100%)'
                 }}
               />
-            </div>
-
-            {/* Prev arrow */}
-            {lightboxIdx > 0 && (
-              <button
-                className="absolute left-4 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/30 transition-all duration-150 hover:bg-white/10 hover:text-white/80"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setLightboxIdx((i) => (i !== null ? i - 1 : null))
-                }}
-                aria-label="Previous screenshot"
+              <div
+                className="absolute inset-x-0 top-0 z-20 flex h-14 items-center justify-between pl-[72px] pr-4 [-webkit-app-region:drag]"
+                onClick={(e) => e.stopPropagation()}
               >
-                <ChevronLeft size={28} />
-              </button>
-            )}
+                <div className="flex items-center sm:w-40">
+                  <span className="font-mono text-[11px] tracking-[0.2em] text-white/40 uppercase">
+                    {String(lightboxIdx + 1).padStart(2, '0')} /{' '}
+                    {String(screenshotUrls.length).padStart(2, '0')}
+                  </span>
+                </div>
 
-            {/* Next arrow */}
-            {lightboxIdx < screenshotUrls.length - 1 && (
-              <button
-                className="absolute right-4 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/30 transition-all duration-150 hover:bg-white/10 hover:text-white/80"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setLightboxIdx((i) => (i !== null ? i + 1 : null))
-                }}
-                aria-label="Next screenshot"
+                {meeting.screenshots[lightboxIdx]?.taken_at && (
+                  <span className="hidden w-48 text-center font-mono text-[11px] text-white/30 sm:block flex-1">
+                    {format(
+                      parseISO(meeting.screenshots[lightboxIdx].taken_at),
+                      'MMM d, yyyy  HH:mm:ss'
+                    )}
+                  </span>
+                )}
+
+                <div className="flex items-center justify-end gap-1 sm:w-40">
+                  <button
+                    onClick={() => setShowInfo(!showInfo)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-150 [-webkit-app-region:no-drag] ${showInfo ? 'bg-white/20 text-white' : 'text-white/40 hover:bg-white/10 hover:text-white/90'}`}
+                    aria-label="Info"
+                    title="Image Info"
+                  >
+                    <Info size={14} strokeWidth={1.5} />
+                  </button>
+                  <button
+                    onClick={() => handleCopyImage(screenshotUrls[lightboxIdx])}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-white/10 hover:text-white/90 [-webkit-app-region:no-drag]"
+                    aria-label="Copy"
+                    title="Copy Image"
+                  >
+                    {hasCopiedImage ? (
+                      <Check size={14} strokeWidth={2} className="text-foreground/80" />
+                    ) : (
+                      <Copy size={14} strokeWidth={1.5} />
+                    )}
+                  </button>
+                  <a
+                    href={screenshotUrls[lightboxIdx]}
+                    download={`briefly-screenshot-${format(parseISO(meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()), 'yyyy-MM-dd-HHmmss')}.png`}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-white/10 hover:text-white/90 [-webkit-app-region:no-drag]"
+                    aria-label="Download"
+                    title="Download Image"
+                  >
+                    <Download size={14} strokeWidth={1.5} />
+                  </a>
+                  <div className="mx-2 h-4 w-[1px] bg-white/20" />
+                  <button
+                    onClick={() => setLightboxIdx(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-white/40 transition-all duration-150 hover:bg-red-500/20 hover:text-red-400 [-webkit-app-region:no-drag]"
+                    aria-label="Close"
+                  >
+                    <X size={14} strokeWidth={2} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right side floating Info Panel */}
+              {showInfo && (
+                <div className="absolute right-6 top-20 z-30 w-72 overflow-hidden rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4">
+                  <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-white/70">
+                    Image Details
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 text-sm text-white/80">
+                      <Monitor size={14} className="text-white/40" />
+                      <div>
+                        <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                          Resolution
+                        </div>
+                        <div className="font-mono">
+                          {imgDims[lightboxIdx]
+                            ? `${imgDims[lightboxIdx].w} × ${imgDims[lightboxIdx].h}`
+                            : '—'}
+                        </div>
+                      </div>
+                    </div>
+                    <Separator className="bg-white/5" />
+                    <div className="flex items-center gap-3 text-sm text-white/80">
+                      <Calendar size={14} className="text-white/40" />
+                      <div>
+                        <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                          Captured At
+                        </div>
+                        <div className="font-mono">
+                          {format(
+                            parseISO(
+                              meeting.screenshots[lightboxIdx]?.taken_at || new Date().toISOString()
+                            ),
+                            'PPpp'
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <Separator className="bg-white/5" />
+                    <div className="flex items-center gap-3 text-sm text-white/80">
+                      <HardDrive size={14} className="text-white/40" />
+                      <div>
+                        <div className="text-white/50 text-[10px] uppercase tracking-wider">
+                          Format & Size
+                        </div>
+                        <div className="font-mono">
+                          PNG •{' '}
+                          {Math.round(
+                            (((screenshotUrls[lightboxIdx].length - 22) * 0.75) / 1024 / 1024) * 10
+                          ) / 10}{' '}
+                          MB
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Image — fills the full screen */}
+              <div
+                className="flex flex-1 items-center justify-center overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
               >
-                <ChevronRight size={28} />
-              </button>
-            )}
-
-            {/* Bottom filmstrip — only when multiple screenshots */}
-            {screenshotUrls.length > 1 && (
-              <>
-                <div
-                  className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28"
-                  style={{
-                    background:
-                      'linear-gradient(to top, var(--briefly-lightbox-fade) 0%, transparent 100%)'
+                <img
+                  key={lightboxIdx}
+                  src={screenshotUrls[lightboxIdx]}
+                  alt={`Screenshot ${lightboxIdx + 1}`}
+                  className="lightbox-image max-h-full max-w-full object-contain"
+                  style={{ maxHeight: 'calc(100vh - 100px)' }}
+                  onLoad={(e) => {
+                    const w = e.currentTarget.naturalWidth
+                    const h = e.currentTarget.naturalHeight
+                    setImgDims((prev) => ({ ...prev, [lightboxIdx]: { w, h } }))
                   }}
                 />
-                <div
-                  className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center gap-2 pb-4"
-                  onClick={(e) => e.stopPropagation()}
+              </div>
+
+              {/* Prev arrow */}
+              {lightboxIdx > 0 && (
+                <button
+                  className="absolute left-4 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/30 transition-all duration-150 hover:bg-white/10 hover:text-white/80"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLightboxIdx((i) => (i !== null ? i - 1 : null))
+                  }}
+                  aria-label="Previous screenshot"
                 >
-                  {screenshotUrls.map((url, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setLightboxIdx(idx)}
-                      aria-label={`View screenshot ${idx + 1} of ${screenshotUrls.length}`}
-                      className={`h-12 w-20 overflow-hidden rounded-md border transition-all duration-150 ${
-                        idx === lightboxIdx
-                          ? 'scale-110 border-white/60 opacity-100'
-                          : 'border-white/10 opacity-35 hover:opacity-65 hover:border-white/25'
-                      }`}
-                    >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+                  <ChevronLeft size={28} />
+                </button>
+              )}
+
+              {/* Next arrow */}
+              {lightboxIdx < screenshotUrls.length - 1 && (
+                <button
+                  className="absolute right-4 top-1/2 z-20 -translate-y-1/2 rounded-full p-3 text-white/30 transition-all duration-150 hover:bg-white/10 hover:text-white/80"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLightboxIdx((i) => (i !== null ? i + 1 : null))
+                  }}
+                  aria-label="Next screenshot"
+                >
+                  <ChevronRight size={28} />
+                </button>
+              )}
+
+              {/* Bottom filmstrip — only when multiple screenshots */}
+              {screenshotUrls.length > 1 && (
+                <>
+                  <div
+                    className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28"
+                    style={{
+                      background:
+                        'linear-gradient(to top, var(--briefly-lightbox-fade) 0%, transparent 100%)'
+                    }}
+                  />
+                  <div
+                    className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center gap-2 pb-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {screenshotUrls.map((url, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setLightboxIdx(idx)}
+                        aria-label={`View screenshot ${idx + 1} of ${screenshotUrls.length}`}
+                        className={`h-12 w-20 overflow-hidden rounded-md border transition-all duration-150 ${
+                          idx === lightboxIdx
+                            ? 'scale-110 border-white/60 opacity-100'
+                            : 'border-white/10 opacity-35 hover:opacity-65 hover:border-white/25'
+                        }`}
+                      >
+                        <img src={url} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </FocusScope>,
           document.body
         )}

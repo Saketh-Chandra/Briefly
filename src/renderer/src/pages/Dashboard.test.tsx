@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { Provider } from 'jotai'
 import { MemoryRouter } from 'react-router-dom'
-import React from 'react'
 import Dashboard from './Dashboard'
 
 // Mock RecordButton — it pulls in RecordingContext and AudioWaveform (browser-media)
@@ -75,11 +74,7 @@ describe('Dashboard — rendering', () => {
   it('shows empty state when no meetings exist', async () => {
     vi.mocked(api.getMeetings).mockResolvedValue([])
     await renderDashboard()
-    await waitFor(() =>
-      expect(
-        screen.getByText(/no recordings yet/i)
-      ).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText(/no recordings yet/i)).toBeInTheDocument())
   })
 
   it('calls getMeetings on mount', async () => {
@@ -88,7 +83,7 @@ describe('Dashboard — rendering', () => {
   })
 })
 
-describe('Dashboard — today\'s meetings', () => {
+describe("Dashboard — today's meetings", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.getOsInfo).mockResolvedValue({ darwinVersion: SUPPORTED_DARWIN })
@@ -99,18 +94,14 @@ describe('Dashboard — today\'s meetings', () => {
     const todayMeeting = makeMeeting({ title: 'Morning Sync', date: new Date().toISOString() })
     vi.mocked(api.getMeetings).mockResolvedValue([todayMeeting as never])
     await renderDashboard()
-    await waitFor(() =>
-      expect(screen.getByText('Morning Sync')).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText('Morning Sync')).toBeInTheDocument())
   })
 
   it('shows "Today" section heading when meetings exist today', async () => {
     const todayMeeting = makeMeeting({ title: 'Stand-up', date: new Date().toISOString() })
     vi.mocked(api.getMeetings).mockResolvedValue([todayMeeting as never])
     await renderDashboard()
-    await waitFor(() =>
-      expect(screen.getByText(/^today$/i)).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText(/^today$/i)).toBeInTheDocument())
   })
 })
 

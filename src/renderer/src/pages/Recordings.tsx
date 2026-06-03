@@ -25,8 +25,8 @@ export default function Recordings(): React.JSX.Element {
   const searchTerm = useAtomValue(searchTermAtom)
   const isSearching = useAtomValue(isSearchingAtom)
   const searchResults = useAtomValue(searchResultsAtom)
-  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(() =>
-    void loadMeetings()
+  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
+    () => void loadMeetings()
   )
 
   useEffect(() => {
@@ -77,14 +77,14 @@ export default function Recordings(): React.JSX.Element {
         meetings={filtered}
         onDelete={handleDelete}
         flat={!!searchTerm}
-        emptyMessage={
-          searchTerm ? `No results for "${searchTerm}"` : 'No recordings yet.'
-        }
+        emptyMessage={searchTerm ? `No results for "${searchTerm}"` : 'No recordings yet.'}
       />
 
       <DeleteMeetingDialog
         open={deleteId !== null}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null)
+        }}
         onConfirm={confirmDelete}
       />
     </div>

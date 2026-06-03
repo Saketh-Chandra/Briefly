@@ -17,10 +17,14 @@ import {
   _resetTestDb,
   insertMeeting,
   insertTranscript,
+  insertSummary,
   getTranscript,
   resetMeetingForReprocessing,
   searchMeetings,
-  getMeetingById
+  getMeetingById,
+  updateTodo,
+  updateJournal,
+  getMeetingDetail
 } from './db'
 
 function seedMeeting(overrides?: Partial<{ sessionId: string; audioPath: string }>): number {
@@ -127,5 +131,153 @@ describe('DB contract — search behavior', () => {
   it('returns empty array for an empty query', () => {
     seedMeeting({ sessionId: 'search-test-3' })
     expect(searchMeetings('')).toEqual([])
+  })
+})
+
+describe('DB contract — updateTodo persistence', () => {
+  beforeEach(() => {
+    _setTestDbPath(':memory:')
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+  })
+
+  it('marks the specified todo index as done', () => {
+    const meetingId = seedMeeting()
+    insertTranscript({ meetingId, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId,
+      summary: 'summary',
+      todos: [
+        { text: 'First task', owner: null, deadline: null, priority: 'low', done: false },
+        { text: 'Second task', owner: null, deadline: null, priority: 'high', done: false }
+      ],
+      keyDecisions: null,
+      participants: null,
+      journal: null,
+      llmModel: 'gpt-4o'
+    })
+
+    updateTodo(meetingId, 0, true)
+
+    const detail = getMeetingDetail(meetingId)
+    expect(detail?.summary?.todos?.[0].done).toBe(true)
+    expect(detail?.summary?.todos?.[1].done).toBe(false)
+  })
+
+  it('can toggle a done todo back to not-done', () => {
+    const meetingId = seedMeeting()
+    insertTranscript({ meetingId, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId,
+      summary: 'summary',
+      todos: [{ text: 'Task', owner: null, deadline: null, priority: 'low', done: true }],
+      keyDecisions: null,
+      participants: null,
+      journal: null,
+      llmModel: 'gpt-4o'
+    })
+
+    updateTodo(meetingId, 0, false)
+
+    const detail = getMeetingDetail(meetingId)
+    expect(detail?.summary?.todos?.[0].done).toBe(false)
+  })
+
+  it('is a no-op when the index is out of range', () => {
+    const meetingId = seedMeeting()
+    insertTranscript({ meetingId, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId,
+      summary: 'summary',
+      todos: [{ text: 'Only task', owner: null, deadline: null, priority: 'low', done: false }],
+      keyDecisions: null,
+      participants: null,
+      journal: null,
+      llmModel: 'gpt-4o'
+    })
+
+    // Should not throw even for far-out-of-range index
+    expect(() => updateTodo(meetingId, 99, true)).not.toThrow()
+    const detail = getMeetingDetail(meetingId)
+    expect(detail?.summary?.todos?.[0].done).toBe(false)
+  })
+})
+
+describe('DB contract — updateJournal persistence', () => {
+  beforeEach(() => {
+    _setTestDbPath(':memory:')
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+  })
+
+  it('replaces the journal text', () => {
+    const meetingId = seedMeeting()
+    insertTranscript({ meetingId, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId,
+      summary: 'summary',
+      todos: null,
+      keyDecisions: null,
+      participants: null,
+      journal: 'original entry',
+      llmModel: 'gpt-4o'
+    })
+
+    updateJournal(meetingId, 'updated entry')
+
+    const detail = getMeetingDetail(meetingId)
+    expect(detail?.summary?.journal).toBe('updated entry')
+  })
+
+  it('replaces a second time correctly', () => {
+    const meetingId = seedMeeting()
+    insertTranscript({ meetingId, content: 'text', chunks: null, model: 'whisper-tiny' })
+    insertSummary({
+      meetingId,
+      summary: 'summary',
+      todos: null,
+      keyDecisions: null,
+      participants: null,
+      journal: 'first',
+      llmModel: 'gpt-4o'
+    })
+
+    updateJournal(meetingId, 'second')
+    updateJournal(meetingId, 'third')
+
+    const detail = getMeetingDetail(meetingId)
+    expect(detail?.summary?.journal).toBe('third')
+  })
+})
+
+describe('DB contract — search index cleared on reset-for-reprocessing', () => {
+  beforeEach(() => {
+    _setTestDbPath(':memory:')
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+  })
+
+  it('removes indexed transcript content from search results after reset', () => {
+    const meetingId = seedMeeting({ sessionId: 'reset-search-1' })
+    insertTranscript({
+      meetingId,
+      content: 'proprietary revenue forecast data',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    // Confirm the meeting is findable before reset
+    expect(searchMeetings('forecast').some((m) => m.id === meetingId)).toBe(true)
+
+    resetMeetingForReprocessing(meetingId)
+
+    // After reset the search index is cleared — meeting should no longer match
+    expect(searchMeetings('forecast').some((m) => m.id === meetingId)).toBe(false)
   })
 })

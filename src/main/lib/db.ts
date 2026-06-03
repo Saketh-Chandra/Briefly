@@ -95,9 +95,7 @@ function indexForSearch(meetingId: number, source: string, content: string): voi
  * when resetting for reprocessing).
  */
 function deleteSearchIndex(meetingId: number): void {
-  getRawDb()
-    .prepare(`DELETE FROM search_index WHERE meeting_id = ?`)
-    .run(meetingId)
+  getRawDb().prepare(`DELETE FROM search_index WHERE meeting_id = ?`).run(meetingId)
 }
 
 /**
@@ -111,7 +109,8 @@ function rebuildSearchIndex(): void {
 
   const db = getDb()
 
-  const txRows = db.select({ meeting_id: transcripts.meeting_id, content: transcripts.content })
+  const txRows = db
+    .select({ meeting_id: transcripts.meeting_id, content: transcripts.content })
     .from(transcripts)
     .all()
   for (const row of txRows) {

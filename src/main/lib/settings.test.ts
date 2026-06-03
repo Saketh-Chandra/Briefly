@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'fs'
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -90,7 +90,7 @@ describe('saveSettings + getSettings — persistence', () => {
 
   it('writes a valid JSON file to disk', () => {
     saveSettings({ whisperLanguage: 'italian' })
-    const raw = require('fs').readFileSync(join(testDir, 'settings.json'), 'utf-8')
+    const raw = readFileSync(join(testDir, 'settings.json'), 'utf-8')
     expect(() => JSON.parse(raw)).not.toThrow()
   })
 })

@@ -8,6 +8,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.3.1] — 2026-05-16
+
+### Added
+- **`lib/whisper-worker.ts`** — `initWhisperWorker(worker, modelId, modelCachePath, opts)` utility extracted from the duplicated `new Promise` init blocks in `WhisperSetupStep`, `Settings`, and `transcription.ts`. Caller creates the `Worker` (preserving Vite's static `new URL(...)` analysis); the helper owns the `onmessage`/`onerror` wiring and `postMessage`.
+- **`hooks/useDeleteMeeting.ts`** — `useDeleteMeeting(onDeleted)` hook encapsulates the `deleteId` state, `handleDelete`, and `confirmDelete` logic shared between Dashboard and Recordings.
+- **`lib/format.ts: toLocalISODate(d)`** — locale-safe `YYYY-MM-DD` formatter using `getFullYear`/`getMonth`/`getDate`. Replaces the inline `toISO` helper in `DateNavigator` and `todayISO` in `Journal`.
+- **`.fallowrc.jsonc`** — Fallow configuration replacing `knip.jsonc`; same four Electron-Vite entry points, ambient `.d.ts` files listed under `ignorePatterns`.
+
+### Changed
+- **Migrated from Knip to Fallow** for dead-code analysis, duplication detection, and complexity reporting. `knip.jsonc` deleted; `npx fallow dead-code` replaces `bunx knip --include files` in docs and contributing guide.
+- **`atoms/pages.ts`** — extracted `withLiveOverlay(list, txState)` as a top-level module helper; `liveMeetingsAtom` and `filteredMeetingsAtom` now both call it instead of duplicating the live-status logic. Fixed `todayISO()` which was using `toISOString().slice(0,10)` (UTC) instead of local calendar date.
+- **`transcription.ts`** — model init block replaced with `initWhisperWorker`; atom progress update passed as `onProgress` callback, stage set to `'transcribing'` after the call resolves.
+- **`DateNavigator.tsx`** — inline `toISO` helper removed; imports `toLocalISODate` from `lib/format.ts`.
+- **`Journal.tsx`** — inline `todayISO` helper removed; imports `toLocalISODate` from `lib/format.ts`.
+- **`Dashboard.tsx` / `Recordings.tsx`** — `handleDelete` / `confirmDelete` / `deleteId` state replaced with `useDeleteMeeting` hook.
+
 ### Fixed
 - **Journal forward navigation broken in non-UTC timezones** — `DateNavigator` and `Journal.tsx` were calling `Date.toISOString().slice(0, 10)` which returns the UTC date, not the local calendar date. In timezones ahead of UTC (UTC+1 through UTC+14) this caused the "next day" button to be permanently disabled one day too early. Both now derive the date from `getFullYear()`/`getMonth()`/`getDate()`.
 - **Lightbox crash on screenshot open** — `Cannot read properties of null (reading 'naturalWidth')` occurred because `e.currentTarget` is nullified by React's synthetic event system before the `setImgDims` updater function ran. Fixed by capturing `naturalWidth`/`naturalHeight` into local variables before the state update call.

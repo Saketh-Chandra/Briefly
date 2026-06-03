@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { Provider } from 'jotai'
 import { MemoryRouter } from 'react-router-dom'
-import React from 'react'
 import Recordings from './Recordings'
 
 vi.mock('@/lib/api', () => ({
@@ -63,9 +62,7 @@ describe('Recordings — rendering', () => {
 
   it('shows empty state when no meetings exist', async () => {
     await renderRecordings()
-    await waitFor(() =>
-      expect(screen.getByText(/no recordings yet/i)).toBeInTheDocument()
-    )
+    await waitFor(() => expect(screen.getByText(/no recordings yet/i)).toBeInTheDocument())
   })
 
   it('calls getMeetings on mount', async () => {
@@ -119,10 +116,9 @@ describe('Recordings — search', () => {
     await renderRecordings()
     const input = screen.getByPlaceholderText(/search recordings/i)
     fireEvent.change(input, { target: { value: 'standup' } })
-    await waitFor(() =>
-      expect(screen.getByText(/1 result.*standup/i)).toBeInTheDocument(),
-      { timeout: 2000 }
-    )
+    await waitFor(() => expect(screen.getByText(/1 result.*standup/i)).toBeInTheDocument(), {
+      timeout: 2000
+    })
   })
 
   it('shows no-results message when search returns empty', async () => {
@@ -130,8 +126,8 @@ describe('Recordings — search', () => {
     await renderRecordings()
     const input = screen.getByPlaceholderText(/search recordings/i)
     fireEvent.change(input, { target: { value: 'xyznotfound' } })
-    await waitFor(() =>
-      expect(screen.getByText(/no results for "xyznotfound"/i)).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByText(/no results for "xyznotfound"/i)).toBeInTheDocument(),
       { timeout: 2000 }
     )
   })

@@ -7,7 +7,11 @@ type LlmSetupStepProps = Omit<LlmFieldsProps, 'onSave' | 'showSave'> & {
   totalSteps: number
 }
 
-export default function LlmSetupStep({ stepNumber, totalSteps, ...props }: LlmSetupStepProps): React.JSX.Element {
+export default function LlmSetupStep({
+  stepNumber,
+  totalSteps,
+  ...props
+}: LlmSetupStepProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
