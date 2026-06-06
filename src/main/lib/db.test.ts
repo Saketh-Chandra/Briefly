@@ -12,6 +12,17 @@ vi.mock('@electron-toolkit/utils', () => ({
   is: { dev: true, development: true }
 }))
 
+// Hoist fs mocks so they are in place when db.ts is first imported
+const { mockExistsSync, mockStatSync } = vi.hoisted(() => ({
+  mockExistsSync: vi.fn(() => true),
+  mockStatSync: vi.fn(() => ({ size: 1024 }))
+}))
+
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>()
+  return { ...actual, existsSync: mockExistsSync, statSync: mockStatSync }
+})
+
 import {
   _setTestDbPath,
   _resetTestDb,
@@ -24,7 +35,9 @@ import {
   getMeetingById,
   updateTodo,
   updateJournal,
-  getMeetingDetail
+  getMeetingDetail,
+  resetStuckMeetings,
+  updateMeetingStatus
 } from './db'
 
 function seedMeeting(overrides?: Partial<{ sessionId: string; audioPath: string }>): number {
@@ -279,5 +292,85 @@ describe('DB contract — search index cleared on reset-for-reprocessing', () =>
 
     // After reset the search index is cleared — meeting should no longer match
     expect(searchMeetings('forecast').some((m) => m.id === meetingId)).toBe(false)
+  })
+})
+
+describe('DB contract — resetStuckMeetings crash recovery', () => {
+  beforeEach(() => {
+    _setTestDbPath(':memory:')
+    // Default: file exists with content
+    mockExistsSync.mockReturnValue(true)
+    mockStatSync.mockReturnValue({ size: 1024 })
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('advances a recording-status meeting to recorded when audio file exists', () => {
+    const id = insertMeeting({
+      sessionId: `stuck-1-${Math.random()}`,
+      audioPath: '/tmp/real-audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    // insertMeeting sets status to 'recording' by default
+    resetStuckMeetings()
+    expect(getMeetingById(id)?.status).toBe('recorded')
+  })
+
+  it('sets recording-status meeting to error when audio file is missing', () => {
+    mockExistsSync.mockReturnValue(false)
+    const id = insertMeeting({
+      sessionId: `stuck-2-${Math.random()}`,
+      audioPath: '/tmp/missing-audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    resetStuckMeetings()
+    expect(getMeetingById(id)?.status).toBe('error')
+  })
+
+  it('sets recording-status meeting to error when audio file is empty', () => {
+    mockStatSync.mockReturnValue({ size: 0 })
+    const id = insertMeeting({
+      sessionId: `stuck-3-${Math.random()}`,
+      audioPath: '/tmp/empty-audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    resetStuckMeetings()
+    expect(getMeetingById(id)?.status).toBe('error')
+  })
+
+  it('resets transcribing meeting back to recorded', () => {
+    const id = insertMeeting({
+      sessionId: `stuck-4-${Math.random()}`,
+      audioPath: '/tmp/audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    updateMeetingStatus(id, 'transcribing')
+    resetStuckMeetings()
+    expect(getMeetingById(id)?.status).toBe('recorded')
+  })
+
+  it('resets processing meeting back to recorded', () => {
+    const id = insertMeeting({
+      sessionId: `stuck-5-${Math.random()}`,
+      audioPath: '/tmp/audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    updateMeetingStatus(id, 'processing')
+    resetStuckMeetings()
+    expect(getMeetingById(id)?.status).toBe('recorded')
+  })
+
+  it('leaves meetings in done/recorded/error status unchanged', () => {
+    const doneId = insertMeeting({
+      sessionId: `stuck-6-${Math.random()}`,
+      audioPath: '/tmp/audio.webm',
+      date: '2024-06-15T10:00:00.000Z'
+    })
+    updateMeetingStatus(doneId, 'done')
+    resetStuckMeetings()
+    expect(getMeetingById(doneId)?.status).toBe('done')
   })
 })

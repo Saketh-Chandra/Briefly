@@ -136,7 +136,7 @@ describe('loadMeetingsAtom', () => {
     const meetings = [makeMeeting({ id: 10 }), makeMeeting({ id: 11 })]
     vi.mocked(api.getMeetings).mockResolvedValue(meetings)
     const store = createStore()
-    await store.set(loadMeetingsAtom, undefined)
+    await store.set(loadMeetingsAtom)
     expect(store.get(meetingsAtom)).toEqual(meetings)
   })
 
@@ -144,8 +144,17 @@ describe('loadMeetingsAtom', () => {
     vi.mocked(api.getMeetings).mockResolvedValue([])
     const store = createStore()
     store.set(meetingsAtom, [makeMeeting()])
-    await store.set(loadMeetingsAtom, undefined)
+    await store.set(loadMeetingsAtom)
     expect(store.get(meetingsAtom)).toEqual([])
+  })
+
+  it('leaves meetingsAtom unchanged when getMeetings rejects', async () => {
+    const existing = [makeMeeting({ id: 5 })]
+    vi.mocked(api.getMeetings).mockRejectedValue(new Error('db error'))
+    const store = createStore()
+    store.set(meetingsAtom, existing)
+    await expect(store.set(loadMeetingsAtom)).rejects.toThrow('db error')
+    expect(store.get(meetingsAtom)).toEqual(existing)
   })
 })
 
@@ -203,6 +212,13 @@ describe('runSearchAtom', () => {
     const store = createStore()
     await store.set(runSearchAtom, 'planning')
     expect(store.get(searchTermAtom)).toBe('planning')
+  })
+
+  it('clears isSearching even when the search call rejects', async () => {
+    vi.mocked(api.searchMeetings).mockRejectedValue(new Error('network error'))
+    const store = createStore()
+    await expect(store.set(runSearchAtom, 'query')).rejects.toThrow('network error')
+    expect(store.get(isSearchingAtom)).toBe(false)
   })
 })
 

@@ -21,9 +21,10 @@ vi.mock('@electron-toolkit/utils', () => ({
 }))
 
 // Hoist mock functions so they are available when vi.mock factory runs
-const { mockExistsSync, mockStatSync } = vi.hoisted(() => ({
+const { mockExistsSync, mockStatSync, mockReaddirSync } = vi.hoisted(() => ({
   mockExistsSync: vi.fn(() => true),
-  mockStatSync: vi.fn(() => ({ size: 1024 }))
+  mockStatSync: vi.fn(() => ({ size: 1024 })),
+  mockReaddirSync: vi.fn(() => [] as import('fs').Dirent[])
 }))
 
 vi.mock('fs', async (importOriginal) => {
@@ -31,7 +32,8 @@ vi.mock('fs', async (importOriginal) => {
   return {
     ...actual,
     existsSync: mockExistsSync,
-    statSync: mockStatSync
+    statSync: mockStatSync,
+    readdirSync: mockReaddirSync
   }
 })
 
@@ -40,8 +42,11 @@ import {
   _resetTestDb,
   insertMeeting,
   getMeetingById,
-  updateMeetingStatus
+  updateMeetingStatus,
+  getDb
 } from '../lib/db'
+import { meetings } from '../lib/schema'
+import { eq, sql } from 'drizzle-orm'
 import { registerTranscriptionHandlers } from './transcription'
 
 function seedMeeting(audioPath = '/tmp/real-audio.webm'): number {
@@ -81,9 +86,6 @@ describe('IPC transcription:start — retriable statuses', () => {
     it(`accepts a meeting in '${status}' status`, async () => {
       const meetingId = seedMeeting()
       // Force the meeting into the desired status via a direct DB update
-      const { getDb } = await import('../lib/db')
-      const { meetings } = await import('../lib/schema')
-      const { eq, sql } = await import('drizzle-orm')
       getDb()
         .update(meetings)
         .set({ status: status as never, updated_at: sql`(datetime('now'))` })
@@ -99,9 +101,6 @@ describe('IPC transcription:start — retriable statuses', () => {
 
   it('throws for an unrecognised status', async () => {
     const meetingId = seedMeeting()
-    const { getDb } = await import('../lib/db')
-    const { meetings } = await import('../lib/schema')
-    const { eq, sql } = await import('drizzle-orm')
     getDb()
       .update(meetings)
       .set({ status: 'recording' as never, updated_at: sql`(datetime('now'))` })
@@ -127,9 +126,6 @@ describe('IPC transcription:start — status normalisation', () => {
 
   it('normalises a non-recorded retriable status to recorded then transcribing', async () => {
     const meetingId = seedMeeting()
-    const { getDb } = await import('../lib/db')
-    const { meetings } = await import('../lib/schema')
-    const { eq, sql } = await import('drizzle-orm')
     getDb()
       .update(meetings)
       .set({ status: 'done' as never, updated_at: sql`(datetime('now'))` })
@@ -238,18 +234,13 @@ describe('IPC transcription:model-status — present model directory', () => {
   })
 
   it('returns present: true when the model directory exists', async () => {
-    // The real model-status handler calls readdirSync inside dirSizeBytes.
-    // Since existsSync returns true but the dir doesn't really exist,
-    // stub readdirSync to return an empty list (no files, sizeBytes = 0).
-    vi.spyOn(await import('fs'), 'readdirSync').mockReturnValue([])
-
+    // readdirSync is already hoisted — returns [] so sizeBytes = 0
     const handler = handlers.get('transcription:model-status')!
     const result = (await handler(null, 'onnx-community/whisper-tiny')) as {
       present: boolean
       sizeBytes: number
     }
     expect(result.present).toBe(true)
-    vi.restoreAllMocks()
   })
 })
 

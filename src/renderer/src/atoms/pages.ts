@@ -68,9 +68,12 @@ export const runSearchAtom = atom(null, async (_get, set, query: string): Promis
     return
   }
   set(isSearchingAtom, true)
-  const results = await api.searchMeetings(query)
-  set(searchResultsAtom, results)
-  set(isSearchingAtom, false)
+  try {
+    const results = await api.searchMeetings(query)
+    set(searchResultsAtom, results)
+  } finally {
+    set(isSearchingAtom, false)
+  }
 })
 
 /**

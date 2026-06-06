@@ -48,7 +48,13 @@ import {
   insertTranscript,
   updateMeetingStatus
 } from '../lib/db'
-import { registerLlmHandlers, chunkText } from './llm'
+import {
+  registerLlmHandlers,
+  chunkText,
+  CHUNK_SIZE_CHARS,
+  CHUNK_OVERLAP_CHARS,
+  CHUNK_THRESHOLD_CHARS
+} from './llm'
 
 const VALID_SETTINGS = {
   whisperModel: 'onnx-community/whisper-large-v3-turbo',
@@ -88,7 +94,7 @@ function invoke(channel: string, ...args: unknown[]): unknown {
 
 describe('chunkText — short transcript stays as single chunk', () => {
   it('returns a single-element array for text at or below the threshold', () => {
-    const short = 'a'.repeat(12000)
+    const short = 'a'.repeat(CHUNK_THRESHOLD_CHARS)
     const result = chunkText(short)
     expect(result).toHaveLength(1)
     expect(result[0]).toBe(short)
@@ -99,37 +105,39 @@ describe('chunkText — short transcript stays as single chunk', () => {
   })
 
   it('returns a single-element array for text exactly one character below the threshold', () => {
-    const text = 'x'.repeat(11999)
+    const text = 'x'.repeat(CHUNK_THRESHOLD_CHARS - 1)
     expect(chunkText(text)).toHaveLength(1)
   })
 })
 
 describe('chunkText — long transcript is split into overlapping chunks', () => {
   it('produces more than one chunk for text exceeding the threshold', () => {
-    const long = 'a'.repeat(25000)
+    const long = 'a'.repeat(CHUNK_SIZE_CHARS * 2 + 1)
     const chunks = chunkText(long)
     expect(chunks.length).toBeGreaterThan(1)
   })
 
-  it('each chunk is at most CHUNK_SIZE_CHARS (12000) characters', () => {
-    const long = 'b'.repeat(50000)
+  it('each chunk is at most CHUNK_SIZE_CHARS characters', () => {
+    const long = 'b'.repeat(CHUNK_SIZE_CHARS * 4)
     for (const chunk of chunkText(long)) {
-      expect(chunk.length).toBeLessThanOrEqual(12000)
+      expect(chunk.length).toBeLessThanOrEqual(CHUNK_SIZE_CHARS)
     }
   })
 
   it('covers the full text without losing content at chunk boundaries', () => {
-    const body = 'hello '.repeat(5000) // 30000 chars
+    const body = 'hello '.repeat(Math.ceil((CHUNK_SIZE_CHARS * 2.5) / 6)) // > 2 chunks
     const chunks = chunkText(body)
     expect(chunks.length).toBeGreaterThanOrEqual(2)
     // First chunk starts at position 0
-    expect(chunks[0]).toBe(body.slice(0, 12000))
-    // Second chunk starts at CHUNK_SIZE - CHUNK_OVERLAP = 11200
-    expect(chunks[1]).toBe(body.slice(11200, 23200))
+    expect(chunks[0]).toBe(body.slice(0, CHUNK_SIZE_CHARS))
+    // Second chunk starts at CHUNK_SIZE - CHUNK_OVERLAP
+    expect(chunks[1]).toBe(
+      body.slice(CHUNK_SIZE_CHARS - CHUNK_OVERLAP_CHARS, CHUNK_SIZE_CHARS * 2 - CHUNK_OVERLAP_CHARS)
+    )
   })
 
   it('last chunk ends exactly at the text boundary (no padding)', () => {
-    const long = 'z'.repeat(13000)
+    const long = 'z'.repeat(CHUNK_SIZE_CHARS + 1000)
     const chunks = chunkText(long)
     const last = chunks[chunks.length - 1]
     expect(last).toBe(long.slice(long.length - last.length))
