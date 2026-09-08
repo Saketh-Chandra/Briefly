@@ -23,7 +23,7 @@ export default function Journal(): React.JSX.Element {
 
   // Reload whenever date changes
   useEffect(() => {
-    void loadJournalMeetings(date)
+    void loadJournalMeetings(date).catch(() => {})
   }, [date, loadJournalMeetings])
 
   function handleDateChange(newDate: string): void {

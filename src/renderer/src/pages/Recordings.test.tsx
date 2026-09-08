@@ -132,3 +132,35 @@ describe('Recordings — search', () => {
     )
   })
 })
+
+describe('Recordings — load states', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.onCaptureEvent).mockReturnValue(() => {})
+    vi.mocked(api.onTranscriptionStatus).mockReturnValue(() => {})
+    vi.mocked(api.onLlmDone).mockReturnValue(() => {})
+  })
+
+  it('keeps the page chrome visible while getMeetings is in flight', async () => {
+    let resolveMeetings!: (value: never[]) => void
+    vi.mocked(api.getMeetings).mockReturnValue(
+      new Promise((resolve) => {
+        resolveMeetings = resolve
+      })
+    )
+    await renderRecordings()
+    expect(screen.getByRole('heading', { name: /recordings/i })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/search recordings/i)).toBeInTheDocument()
+    expect(screen.queryByText('Retro')).not.toBeInTheDocument()
+    await act(async () => {
+      resolveMeetings([])
+    })
+  })
+
+  it('stays on the empty chrome when getMeetings rejects', async () => {
+    vi.mocked(api.getMeetings).mockRejectedValue(new Error('db unavailable'))
+    await renderRecordings()
+    expect(screen.getByRole('heading', { name: /recordings/i })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/no recordings yet/i)).toBeInTheDocument())
+  })
+})

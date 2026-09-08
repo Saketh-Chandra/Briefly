@@ -23,8 +23,9 @@ Focus on reliability before adding stricter policy.
 
 Priority work:
 
-- Remove or rewrite flaky tests.
+- Remove or rewrite flaky tests. Start with the slow suites listed in [notes/testing-phase-2-quality.md](./notes/testing-phase-2-quality.md) (Settings, Onboarding, SourcePicker, Recordings search).
 - Speed up setup and execution through caching and tighter test scoping.
+- Tighten Phase 2 page assertions that are crash guards rather than user-visible outcomes (same notes file: silent `.catch` load errors, Recordings IPC subscribe-without-fire).
 - Keep required and non-required jobs intentionally separated.
 - Confirm Node `24.16.0`, `.nvmrc`, README, and workflow stay aligned.
 

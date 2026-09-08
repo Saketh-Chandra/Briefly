@@ -30,11 +30,14 @@ vi.mock('@electron-toolkit/utils', () => ({
 }))
 
 // Keep existsSync returning false so the delete handler never touches the fs
-const { mockExistsSync } = vi.hoisted(() => ({ mockExistsSync: vi.fn(() => false) }))
+const { mockExistsSync, mockReadFileSync } = vi.hoisted(() => ({
+  mockExistsSync: vi.fn(() => false),
+  mockReadFileSync: vi.fn()
+}))
 
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>()
-  return { ...actual, existsSync: mockExistsSync }
+  return { ...actual, existsSync: mockExistsSync, readFileSync: mockReadFileSync }
 })
 
 import {
@@ -50,6 +53,7 @@ import {
 import { meetings } from '../lib/schema'
 import { eq, sql } from 'drizzle-orm'
 import { registerStorageHandlers } from './storage'
+import { clipboard, nativeImage } from 'electron'
 
 function seedMeeting(overrides: { title?: string; date?: string; status?: string } = {}): number {
   const id = insertMeeting({
@@ -437,5 +441,50 @@ describe('storage IPC — journal update persistence', () => {
       summary: { journal: string }
     }
     expect(detail.summary.journal).toBe('third entry')
+  })
+})
+
+describe('storage IPC — screenshots and clipboard', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockExistsSync.mockReturnValue(false)
+    mockReadFileSync.mockReset()
+    registerStorageHandlers()
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('storage:read-screenshot rejects paths outside userData', async () => {
+    await expect(invoke('storage:read-screenshot', '/etc/passwd')).rejects.toThrow(/access denied/i)
+    expect(mockReadFileSync).not.toHaveBeenCalled()
+  })
+
+  it('storage:read-screenshot throws when the file is missing', async () => {
+    await expect(
+      invoke('storage:read-screenshot', '/tmp/briefly-storage-test/recordings/s/001.png')
+    ).rejects.toThrow(/screenshot not found/i)
+  })
+
+  it('storage:read-screenshot returns a data URL for a file inside userData', async () => {
+    mockExistsSync.mockReturnValue(true)
+    mockReadFileSync.mockReturnValue(Buffer.from('png-bytes'))
+    const result = await invoke(
+      'storage:read-screenshot',
+      '/tmp/briefly-storage-test/recordings/s/001.png'
+    )
+    expect(result).toBe(`data:image/png;base64,${Buffer.from('png-bytes').toString('base64')}`)
+    expect(mockReadFileSync).toHaveBeenCalledWith('/tmp/briefly-storage-test/recordings/s/001.png')
+  })
+
+  it('clipboard:write-image writes a native image from the data URL', async () => {
+    const image = { id: 'native' }
+    vi.mocked(nativeImage.createFromDataURL).mockReturnValue(image as never)
+    await invoke('clipboard:write-image', 'data:image/png;base64,abc')
+    expect(nativeImage.createFromDataURL).toHaveBeenCalledWith('data:image/png;base64,abc')
+    expect(clipboard.writeImage).toHaveBeenCalledWith(image)
   })
 })

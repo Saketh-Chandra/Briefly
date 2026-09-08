@@ -18,12 +18,12 @@ export default function Dashboard(): React.JSX.Element {
   const navigate = useNavigate()
   const [unsupportedOS, setUnsupportedOS] = useState(false)
   const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
-    () => void loadMeetings()
+    () => void loadMeetings().catch(() => {})
   )
 
   // Initial load
   useEffect(() => {
-    void loadMeetings()
+    void loadMeetings().catch(() => {})
   }, [loadMeetings])
 
   // Check macOS version — system audio capture requires 14.2+
@@ -39,7 +39,7 @@ export default function Dashboard(): React.JSX.Element {
   // Reload when a recording finishes saving
   useEffect(() => {
     const unsub = api.onCaptureEvent((event) => {
-      if (event.type === 'stopped') void loadMeetings()
+      if (event.type === 'stopped') void loadMeetings().catch(() => {})
     })
     return unsub
   }, [loadMeetings])

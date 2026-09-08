@@ -26,11 +26,11 @@ export default function Recordings(): React.JSX.Element {
   const isSearching = useAtomValue(isSearchingAtom)
   const searchResults = useAtomValue(searchResultsAtom)
   const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
-    () => void loadMeetings()
+    () => void loadMeetings().catch(() => {})
   )
 
   useEffect(() => {
-    void loadMeetings()
+    void loadMeetings().catch(() => {})
     // Clear stale search results when the meetings list reloads
     setSearchResults(null)
   }, [loadMeetings, setSearchResults])
@@ -38,19 +38,19 @@ export default function Recordings(): React.JSX.Element {
   // Reload when a recording saves
   useEffect(() => {
     const unsub = api.onCaptureEvent((event) => {
-      if (event.type === 'stopped') void loadMeetings()
+      if (event.type === 'stopped') void loadMeetings().catch(() => {})
     })
     return unsub
   }, [loadMeetings])
 
   // Reload when transcription or LLM finishes so status badges update
   useEffect(() => {
-    const unsub = api.onTranscriptionStatus(() => void loadMeetings())
+    const unsub = api.onTranscriptionStatus(() => void loadMeetings().catch(() => {}))
     return unsub
   }, [loadMeetings])
 
   useEffect(() => {
-    const unsub = api.onLlmDone(() => void loadMeetings())
+    const unsub = api.onLlmDone(() => void loadMeetings().catch(() => {}))
     return unsub
   }, [loadMeetings])
 
@@ -59,7 +59,7 @@ export default function Recordings(): React.JSX.Element {
       <h1 className="mb-6 font-display text-2xl italic text-foreground/80">Recordings</h1>
 
       <div className="mb-5 flex flex-col gap-3">
-        <SearchBar onSearch={(q) => void runSearch(q)} />
+        <SearchBar onSearch={(q) => void runSearch(q).catch(() => {})} />
         <FilterBar active={statusFilter} onChange={setStatusFilter} />
       </div>
 

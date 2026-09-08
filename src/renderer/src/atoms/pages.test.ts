@@ -19,7 +19,9 @@ import {
   searchTermAtom,
   searchResultsAtom,
   isSearchingAtom,
-  statusFilterAtom
+  statusFilterAtom,
+  journalMeetingsAtom,
+  loadJournalMeetingsAtom
 } from './pages'
 import { transcriptionAtom, initialTranscriptionState } from './transcription'
 import type { Meeting } from '../../../main/lib/types'
@@ -282,5 +284,41 @@ describe('filteredMeetingsAtom', () => {
     const result = store.get(filteredMeetingsAtom)
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// loadJournalMeetingsAtom
+// ---------------------------------------------------------------------------
+
+describe('loadJournalMeetingsAtom', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('fetches meetings for the given date', async () => {
+    const meetings = [makeMeeting({ id: 20, date: '2024-06-15T10:00:00.000Z' })]
+    vi.mocked(api.getMeetingsByDate).mockResolvedValue(meetings)
+    const store = createStore()
+    await store.set(loadJournalMeetingsAtom, '2024-06-15')
+    expect(api.getMeetingsByDate).toHaveBeenCalledWith('2024-06-15')
+    expect(store.get(journalMeetingsAtom)).toEqual(meetings)
+  })
+
+  it('replaces previously loaded journal meetings', async () => {
+    vi.mocked(api.getMeetingsByDate).mockResolvedValue([])
+    const store = createStore()
+    store.set(journalMeetingsAtom, [makeMeeting()])
+    await store.set(loadJournalMeetingsAtom, '2024-06-16')
+    expect(store.get(journalMeetingsAtom)).toEqual([])
+  })
+
+  it('leaves journalMeetingsAtom unchanged when getMeetingsByDate rejects', async () => {
+    const existing = [makeMeeting({ id: 8 })]
+    vi.mocked(api.getMeetingsByDate).mockRejectedValue(new Error('db error'))
+    const store = createStore()
+    store.set(journalMeetingsAtom, existing)
+    await expect(store.set(loadJournalMeetingsAtom, '2024-06-16')).rejects.toThrow('db error')
+    expect(store.get(journalMeetingsAtom)).toEqual(existing)
   })
 })

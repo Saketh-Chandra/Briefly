@@ -126,3 +126,43 @@ describe('Dashboard — OS version warning', () => {
     expect(screen.queryByText(/system audio capture requires/i)).not.toBeInTheDocument()
   })
 })
+
+describe('Dashboard — load states', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(api.getOsInfo).mockResolvedValue({ darwinVersion: SUPPORTED_DARWIN })
+    vi.mocked(api.onCaptureEvent).mockReturnValue(() => {})
+  })
+
+  it('keeps the hero chrome visible while getMeetings is in flight', async () => {
+    let resolveMeetings!: (value: never[]) => void
+    vi.mocked(api.getMeetings).mockReturnValue(
+      new Promise((resolve) => {
+        resolveMeetings = resolve
+      })
+    )
+    await renderDashboard()
+    expect(screen.getByText(/ready when you are/i)).toBeInTheDocument()
+    expect(screen.getByTestId('record-button')).toBeInTheDocument()
+    expect(screen.queryByText('Morning Sync')).not.toBeInTheDocument()
+    await act(async () => {
+      resolveMeetings([])
+    })
+  })
+
+  it('stays on the empty chrome when getMeetings rejects', async () => {
+    vi.mocked(api.getMeetings).mockRejectedValue(new Error('db unavailable'))
+    await renderDashboard()
+    expect(screen.getByText(/ready when you are/i)).toBeInTheDocument()
+    expect(screen.getByTestId('record-button')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/no recordings yet/i)).toBeInTheDocument())
+  })
+
+  it('does not show the OS warning when getOsInfo rejects', async () => {
+    vi.mocked(api.getMeetings).mockResolvedValue([])
+    vi.mocked(api.getOsInfo).mockRejectedValue(new Error('ipc failed'))
+    await renderDashboard()
+    expect(screen.queryByText(/system audio capture requires/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/ready when you are/i)).toBeInTheDocument()
+  })
+})

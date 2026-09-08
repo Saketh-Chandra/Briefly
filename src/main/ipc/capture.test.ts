@@ -47,19 +47,26 @@ vi.mock('../lib/tray', () => ({
   updateTrayState: vi.fn()
 }))
 
-const { mockCopyFileSync, mockMkdirSync } = vi.hoisted(() => ({
+const { mockCopyFileSync, mockMkdirSync, mockWriteFileSync } = vi.hoisted(() => ({
   mockCopyFileSync: vi.fn(),
-  mockMkdirSync: vi.fn()
+  mockMkdirSync: vi.fn(),
+  mockWriteFileSync: vi.fn()
 }))
 
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>()
-  return { ...actual, copyFileSync: mockCopyFileSync, mkdirSync: mockMkdirSync }
+  return {
+    ...actual,
+    copyFileSync: mockCopyFileSync,
+    mkdirSync: mockMkdirSync,
+    writeFileSync: mockWriteFileSync
+  }
 })
 
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'test-uuid-1234') }))
 
-import { _setTestDbPath, _resetTestDb, getMeetingById } from '../lib/db'
+import { _setTestDbPath, _resetTestDb, getMeetingById, getMeetingDetail } from '../lib/db'
+import { desktopCapturer } from 'electron'
 import { registerCaptureHandlers } from './capture'
 
 function invoke(channel: string, ...args: unknown[]): unknown {
@@ -148,5 +155,59 @@ describe('capture:import-audio — file selected', () => {
       '/Users/alice/Downloads/call.wav',
       expect.stringContaining('audio.wav')
     )
+  })
+})
+
+describe('capture:screenshot-save', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    registerCaptureHandlers()
+  })
+
+  afterEach(async () => {
+    await invoke('capture:finalize', 'test-uuid-1234', 1)
+    _resetTestDb()
+    vi.clearAllMocks()
+  })
+
+  it('returns null when no recording session is active', async () => {
+    await expect(invoke('capture:screenshot-save')).resolves.toBeNull()
+    expect(desktopCapturer.getSources).not.toHaveBeenCalled()
+  })
+
+  it('returns null when desktopCapturer yields no PNG', async () => {
+    await invoke('capture:start', { mixMic: false, sourceId: null })
+    vi.mocked(desktopCapturer.getSources).mockResolvedValueOnce([])
+    await expect(invoke('capture:screenshot-save')).resolves.toBeNull()
+  })
+
+  it('writes a PNG, inserts a screenshot row, and returns the path', async () => {
+    const png = Buffer.from('fake-png')
+    vi.mocked(desktopCapturer.getSources).mockResolvedValueOnce([
+      {
+        id: 'screen:0',
+        name: 'Display',
+        display_id: '1',
+        thumbnail: { toPNG: () => png, toDataURL: () => 'data:image/png;base64,xx' },
+        appIcon: null
+      } as never
+    ])
+
+    const started = (await invoke('capture:start', { mixMic: true, sourceId: null })) as {
+      meetingId: number
+      sessionId: string
+    }
+    const path = (await invoke('capture:screenshot-save')) as string
+
+    expect(path).toMatch(/screenshots[/\\]001\.png$/)
+    expect(mockWriteFileSync).toHaveBeenCalledWith(path, png)
+    expect(desktopCapturer.getSources).toHaveBeenCalledWith({
+      types: ['screen'],
+      thumbnailSize: { width: 3840, height: 2160 }
+    })
+    const detail = getMeetingDetail(started.meetingId)
+    expect(detail?.screenshots).toHaveLength(1)
+    expect(detail?.screenshots[0].path).toBe(path)
   })
 })

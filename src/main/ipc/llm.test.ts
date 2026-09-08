@@ -46,8 +46,10 @@ import {
   insertMeeting,
   getMeetingById,
   insertTranscript,
+  getSummary,
   updateMeetingStatus
 } from '../lib/db'
+import { notifySummaryReady, notifyError } from '../lib/notifications'
 import {
   registerLlmHandlers,
   chunkText,
@@ -250,5 +252,209 @@ describe('llm:process — LLM network failure', () => {
 
     await expect(invoke('llm:process', id)).rejects.toThrow()
     expect(getMeetingById(id)?.status).toBe('error')
+  })
+})
+
+const SUMMARY_JSON = JSON.stringify({
+  title: 'Standup',
+  summary: 'We discussed the sprint.',
+  key_decisions: ['Ship Friday'],
+  participants_mentioned: ['Alex']
+})
+const TODOS_JSON = JSON.stringify({
+  todos: [{ text: 'Follow up', owner: 'Alex', deadline: null, priority: 'high' }]
+})
+const JOURNAL_TEXT = 'Good meeting today.'
+
+function stubSuccessfulLlmFetch(): ReturnType<typeof vi.fn> {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: SUMMARY_JSON } }] })
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: TODOS_JSON } }] })
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JOURNAL_TEXT } }] })
+    })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('llm:process — OpenAI-compatible happy path', () => {
+  const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue(VALID_SETTINGS)
+    mockGetApiKey.mockResolvedValue('sk-test')
+    sender.send.mockClear()
+    registerLlmHandlers(() => sender as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('uses a Bearer token, emits progress, and persists the summary', async () => {
+    const fetchMock = stubSuccessfulLlmFetch()
+    const id = seedMeeting()
+    insertTranscript({
+      meetingId: id,
+      content: 'brief transcript that fits in one pass',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    const result = await invoke('llm:process', id)
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://api.openai.com/v1/chat/completions')
+    expect(init.headers.Authorization).toBe('Bearer sk-test')
+    expect(init.headers['api-key']).toBeUndefined()
+
+    expect(result).toMatchObject({
+      title: 'Standup',
+      summary: 'We discussed the sprint.',
+      journal: JOURNAL_TEXT
+    })
+    expect(getMeetingById(id)?.status).toBe('done')
+    expect(getMeetingById(id)?.title).toBe('Standup')
+    expect(getSummary(id)?.journal).toBe(JOURNAL_TEXT)
+    expect(sender.send).toHaveBeenCalledWith(
+      'llm:progress',
+      expect.objectContaining({ meetingId: id, step: 1, total: 3 })
+    )
+    expect(sender.send).toHaveBeenCalledWith('llm:done', { meetingId: id })
+    expect(notifySummaryReady).toHaveBeenCalledWith('Standup', id)
+  })
+})
+
+describe('llm:process — Azure OpenAI', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue({
+      whisperModel: 'onnx-community/whisper-large-v3-turbo',
+      whisperLanguage: 'english',
+      llm: {
+        baseURL: 'https://myresource.openai.azure.com/openai/deployments/gpt-4o',
+        model: 'gpt-4o',
+        apiVersion: '2025-01-01-preview'
+      }
+    })
+    mockGetApiKey.mockResolvedValue('azure-key')
+    registerLlmHandlers(() => makeMockSender() as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('sends the api-key header and api-version query param', async () => {
+    const fetchMock = stubSuccessfulLlmFetch()
+    const id = seedMeeting()
+    insertTranscript({
+      meetingId: id,
+      content: 'azure path transcript',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    await invoke('llm:process', id)
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe(
+      'https://myresource.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview'
+    )
+    expect(init.headers['api-key']).toBe('azure-key')
+    expect(init.headers.Authorization).toBeUndefined()
+    expect(getMeetingById(id)?.status).toBe('done')
+  })
+})
+
+describe('llm:process — retryable HTTP failures', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue(VALID_SETTINGS)
+    mockGetApiKey.mockResolvedValue('sk-test')
+    registerLlmHandlers(() => makeMockSender() as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('wraps a 429 as LLMClientError and marks the meeting as error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        text: async () => 'rate limited'
+      })
+    )
+    const id = seedMeeting()
+    insertTranscript({
+      meetingId: id,
+      content: 'brief transcript that fits in one pass',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    await expect(invoke('llm:process', id)).rejects.toThrow(/LLM error \(429\)/)
+    expect(getMeetingById(id)?.status).toBe('error')
+    expect(notifyError).toHaveBeenCalledWith('Summarisation', expect.stringMatching(/429/))
+  })
+})
+
+describe('llm:test-connection', () => {
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue(VALID_SETTINGS)
+    mockGetApiKey.mockResolvedValue('sk-test')
+    registerLlmHandlers(() => makeMockSender() as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('throws when no API key is set', async () => {
+    mockGetApiKey.mockResolvedValueOnce(null)
+    await expect(invoke('llm:test-connection')).rejects.toThrow(/api key not set/i)
+  })
+
+  it('throws when the base URL is empty', async () => {
+    mockGetSettings.mockReturnValue(EMPTY_BASEURL_SETTINGS)
+    await expect(invoke('llm:test-connection')).rejects.toThrow(/base url not configured/i)
+  })
+
+  it('returns ok after a successful chat completion', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'ok' } }] })
+      })
+    )
+    await expect(invoke('llm:test-connection')).resolves.toEqual({ ok: true })
   })
 })
