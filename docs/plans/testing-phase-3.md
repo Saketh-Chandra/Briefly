@@ -23,9 +23,9 @@ Focus on reliability before adding stricter policy.
 
 Priority work:
 
-- Remove or rewrite flaky tests. Start with the slow suites listed in [notes/testing-phase-2-quality.md](./notes/testing-phase-2-quality.md) (Settings, Onboarding, SourcePicker, Recordings search).
+- Remove or rewrite flaky tests. Start with the slow suites (Settings, Onboarding, SourcePicker, Recordings search).
 - Speed up setup and execution through caching and tighter test scoping.
-- Tighten Phase 2 page assertions that are crash guards rather than user-visible outcomes (same notes file: silent `.catch` load errors, Recordings IPC subscribe-without-fire).
+- Tighten Phase 2 page assertions that are crash guards rather than user-visible outcomes (silent `.catch` load errors, Recordings IPC subscribe-without-fire).
 - Keep required and non-required jobs intentionally separated.
 - Confirm Node `24.16.0`, `.nvmrc`, README, and workflow stay aligned.
 
@@ -94,17 +94,13 @@ Phase 3 is complete when all of the following are true:
 
 ## Status
 
-**In progress** as of 2026-09-08.
+**Complete** as of 2026-09-09.
 
-Release smoke checklist: [`docs/release-smoke-checklist.md`](../release-smoke-checklist.md). Quality follow-ups: [notes/testing-phase-2-quality.md](./notes/testing-phase-2-quality.md).
+Required `ci` and non-required `coverage` jobs are green on the testing-rollout branch. Coverage stays visible and is not a merge gate. Do not add coverage thresholds until that job has a stretch of stable history.
 
-Silent list-load failures on Dashboard, Recordings, and Journal remain intended product behavior: local IPC/SQLite errors keep the page chrome and primary CTA usable rather than adding an error banner. Crash-guard tests are named as such.
+Release smoke checklist: [`docs/release-smoke-checklist.md`](../release-smoke-checklist.md). OS-coupled behavior (permissions, tray, deep links, keychain, platform capture) stays manual.
 
-Landed this session: CI install pinning (`bun install --frozen-lockfile`, Bun + ESLint caches), honest page assertions and IPC reload fires, faster Settings/Onboarding/Recordings search, import + todo/journal UI persistence, search ranking/limit, LLM map-reduce plus reduce-step failure, pipeline cancel/restart.
-
-Resilience follow-up: worker error mid-transcription with retry, IPC refresh storms + unmount detach on Dashboard/Recordings, LLM partial progress then to-dos failure (IPC + renderer `processTranscript` throw).
-
-Still open for later Phase 3 sessions: coverage-threshold decision after more CI history; watch Settings Radix dialog time; any remaining resilience gaps that only show up in packaged builds.
+Silent list-load failures on Dashboard, Recordings, and Journal remain intended product behavior. Crash-guard tests are named as such.
 
 ## Non-Goals
 

@@ -112,11 +112,7 @@ Local `bunx vitest run`: 34 files, 352 tests, all green. All four done-definitio
 - Dashboard, Recordings, Transcript, Settings, Journal, and Onboarding have happy-path coverage plus load/error (or equivalent failure) paths. Transcript also covers delete, IPC refresh, and reset-for-reprocessing.
 - Named media seams have targeted tests: `capture-session`, `whisper-worker`, `AudioWaveform`, `SourcePicker`. Extra depth landed on `whisper.worker.ts` and the onboarding step components; that is beyond the named list, not a leftover.
 - Named IPC and lib contracts have tests: storage, settings, llm, capture, settings lib, proxy, keychain, db. LLM coverage includes Azure vs OpenAI-compatible, missing key, empty `baseURL`, retryable failure, and renderer-visible errors.
-- The two Vitest projects stay green locally. Slow user-event cases exist (Settings, Onboarding) but are not sleep-based. Coverage thresholds stay out (Phase 2 non-goal). CI hardening is Testing Phase 3.
-
-Do not start [Testing Phase 3](./testing-phase-3.md) until that phase is explicitly requested. Phase 3 is CI hardening and long-tail recovery, not more page tests.
-
-Quality follow-ups (silent load errors, IPC subscribe-without-fire, slow Radix suites): [notes/testing-phase-2-quality.md](./notes/testing-phase-2-quality.md).
+- The two Vitest projects stay green locally. Slow user-event cases exist (Settings, Onboarding) but are not sleep-based. Coverage thresholds stay out (Phase 2 non-goal). CI hardening is [Testing Phase 3](./testing-phase-3.md) (complete).
 
 ## Non-Goals
 

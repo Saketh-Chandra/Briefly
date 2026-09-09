@@ -8,17 +8,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Testing rollout Phases 1–3: Vitest `main`/`renderer` projects, IPC and renderer coverage, GitHub Actions `ci` (required) and `coverage` (report-only), and a maintained [release smoke checklist](docs/release-smoke-checklist.md) for OS-coupled behavior.
+
 ---
 
 ## [0.3.1] — 2026-05-16
 
 ### Added
+
 - **`lib/whisper-worker.ts`** — `initWhisperWorker(worker, modelId, modelCachePath, opts)` utility extracted from the duplicated `new Promise` init blocks in `WhisperSetupStep`, `Settings`, and `transcription.ts`. Caller creates the `Worker` (preserving Vite's static `new URL(...)` analysis); the helper owns the `onmessage`/`onerror` wiring and `postMessage`.
 - **`hooks/useDeleteMeeting.ts`** — `useDeleteMeeting(onDeleted)` hook encapsulates the `deleteId` state, `handleDelete`, and `confirmDelete` logic shared between Dashboard and Recordings.
 - **`lib/format.ts: toLocalISODate(d)`** — locale-safe `YYYY-MM-DD` formatter using `getFullYear`/`getMonth`/`getDate`. Replaces the inline `toISO` helper in `DateNavigator` and `todayISO` in `Journal`.
 - **`.fallowrc.jsonc`** — Fallow configuration replacing `knip.jsonc`; same four Electron-Vite entry points, ambient `.d.ts` files listed under `ignorePatterns`.
 
 ### Changed
+
 - **Migrated from Knip to Fallow** for dead-code analysis, duplication detection, and complexity reporting. `knip.jsonc` deleted; `npx fallow dead-code` replaces `bunx knip --include files` in docs and contributing guide.
 - **`atoms/pages.ts`** — extracted `withLiveOverlay(list, txState)` as a top-level module helper; `liveMeetingsAtom` and `filteredMeetingsAtom` now both call it instead of duplicating the live-status logic. Fixed `todayISO()` which was using `toISOString().slice(0,10)` (UTC) instead of local calendar date.
 - **`transcription.ts`** — model init block replaced with `initWhisperWorker`; atom progress update passed as `onProgress` callback, stage set to `'transcribing'` after the call resolves.
@@ -27,10 +33,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`Dashboard.tsx` / `Recordings.tsx`** — `handleDelete` / `confirmDelete` / `deleteId` state replaced with `useDeleteMeeting` hook.
 
 ### Fixed
+
 - **Journal forward navigation broken in non-UTC timezones** — `DateNavigator` and `Journal.tsx` were calling `Date.toISOString().slice(0, 10)` which returns the UTC date, not the local calendar date. In timezones ahead of UTC (UTC+1 through UTC+14) this caused the "next day" button to be permanently disabled one day too early. Both now derive the date from `getFullYear()`/`getMonth()`/`getDate()`.
 - **Lightbox crash on screenshot open** — `Cannot read properties of null (reading 'naturalWidth')` occurred because `e.currentTarget` is nullified by React's synthetic event system before the `setImgDims` updater function ran. Fixed by capturing `naturalWidth`/`naturalHeight` into local variables before the state update call.
 
 ### Added
+
 - **Shared `DeleteMeetingDialog` component** (`src/renderer/src/components/DeleteMeetingDialog.tsx`) — replaces all `window.confirm()` delete prompts across Dashboard, Recordings, and Transcript with a consistent modal dialog (title, description, Cancel + destructive Delete actions).
 - **`lib/platform.ts`** — `isSupportedMacOSVersion(darwinVersion)` extracted from Dashboard and Onboarding into a shared utility to avoid duplication.
 - **`lib/format.ts`** — `formatDuration(seconds)` extracted from MeetingCard and MeetingList into a shared utility.
@@ -41,6 +49,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Design tokens for lightbox overlay** — `--briefly-lightbox-bg` and `--briefly-lightbox-fade` CSS variables added to `main.css`; all three inline `oklch()` literals in the Transcript lightbox replaced with `var(--briefly-lightbox-*)`.
 
 ### Changed
+
 - **Onboarding step labels driven by props** — `LlmSetupStep`, `WhisperSetupStep`, `PermissionsStep`, and `ReadyStep` now accept `stepNumber: number` and `totalSteps: number` props instead of hardcoded `"Step N of 5"` strings. `Onboarding.tsx` passes values derived from the existing `TOTAL_STEPS` constant.
 - **Lightbox focus trap** — the screenshot lightbox portal is now wrapped in `@radix-ui/react-focus-scope` (`<FocusScope trapped loop>`) so keyboard focus cannot escape behind the overlay.
 - **`PipelineStatus` stage label is a live region** — `aria-live="polite" aria-atomic="true"` added to the status `<p>` so screen readers announce stage transitions ("Transcribing audio…" → "Generating summary…").
@@ -56,8 +65,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`text-green-500` replaced with design token** — "Connected" in `LlmFields` and "model ready" in `WhisperSetupStep` now use `text-foreground/80` instead of the raw Tailwind green.
 - **Accessible names on delete/action buttons** — `aria-label="Delete <title>"` added to delete buttons in `MeetingCard`, `MeetingList`, and Transcript filmstrip/grid; `aria-label="Open transcript"` on `JournalEntryCard` ExternalLink button.
 - **Transcript lightbox filmstrip and screenshot grid** — each thumbnail button carries `aria-label="View screenshot N of M"` (filmstrip) or `aria-label="Open screenshot N"` (grid).
-
-
   - Standalone `search_index` FTS5 virtual table (`meeting_id UNINDEXED, source UNINDEXED, content`) added via migration `0002_fts_transcripts.sql`. Decoupled from source table schema — no triggers, no `content=` coupling.
   - Four content types indexed per meeting: `transcript`, `summary`, `decisions`, `journal`. Meeting titles searched separately via `LIKE` on the `meetings` table and always ranked first (score −999).
   - `indexForSearch(meetingId, source, content)` and `deleteSearchIndex(meetingId)` helpers in `db.ts` write/remove rows explicitly at the call sites (`insertTranscript`, `insertSummary`, `resetMeetingForReprocessing`).
@@ -69,6 +76,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Result count line in `Recordings.tsx` (`"N results for 'query'"`); shows stale count with trailing `…` during re-search to avoid flicker.
 
 ### Added
+
 - **Key decisions & participants display** — the Summary tab now shows two new sections below the summary prose: a **Participants** pill list and a **Key Decisions** bullet list. Both fields were already extracted by the LLM but were previously discarded.
   - `key_decisions` and `participants` columns added to the `summaries` DB table (migration `0001_grey_silver_surfer.sql`).
   - `insertSummary` and `getMeetingDetail` updated to persist and return both fields.
@@ -81,6 +89,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ---
 
 ### Added (previous unreleased)
+
 - **First-run onboarding wizard** — full-screen Raycast-style setup flow shown to new users before the app shell renders:
   - Step 1 — Welcome: 88px Instrument Serif wordmark, tagline, staggered entrance animation, amber OS warning if macOS < 14.2
   - Step 2 — LLM Setup: shared `LlmFields` component with live connection test; skippable
@@ -100,11 +109,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Shared `LlmFields` component** (`src/renderer/src/components/LlmFields.tsx`) extracted from `Settings.tsx`; used in both wizard and Settings page
 
 ### Changed
+
 - `AppShell` now checks `onboardingComplete` on mount; redirects to `/onboarding` if not set
 - `Settings.tsx` LLM section refactored to use shared `LlmFields` component
 - `/onboarding` added as a top-level route outside `AppShell` (no sidebar / titlebar)
 
 ### Screenshot Gallery & Lightbox
+
 - Added new "Screenshots" tab in the Transcript view for captured meeting screen grabs.
 - Implemented a full-screen, native-feeling image lightbox with thumbnail filmstrip.
 - Added keyboard shortcuts for navigating screenshots (Left/Right/Escape).
@@ -113,6 +124,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Direct download button for high-res PNGs.
 
 ### Changed
+
 - `README.md` and `docs/context.md` fully rewritten to reflect current architecture (no Swift binary, macOS 14.2+ requirement, `bun` for dependencies, `npm` for scripts)
 
 ---
@@ -122,6 +134,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 **Background pipeline, re-run fixes, deep link support & single-instance lock**
 
 ### Fixed
+
 - `resetMeetingForReprocessing` was setting meeting status to `'transcribed'` instead of `'recorded'`, causing `transcription:start` to throw immediately on re-run
 - `resetMeetingForReprocessing` was not deleting the `transcripts` row — old transcript rows accumulated across re-runs; LLM step would read the stale first row
 - `transcription:start` IPC guard was throwing for any status other than `'recorded'`, blocking re-transcription of already-processed meetings
@@ -130,6 +143,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Re-run button was hidden when `meeting.transcript` was null, blocking re-run from `'error'` state
 
 ### Added
+
 - `liveMeetingsAtom` — derived Jotai atom that overlays the live pipeline stage onto the DB meetings list; Dashboard and Recordings show correct in-flight status without a DB round-trip
 - Module-level `unsubLlmRef` / `unsubDoneRef` — IPC listeners are now cleaned up on reset, preventing stale ghost callbacks across pipeline runs
 - `startPipelineAtom` performs a clean cancel-and-restart when called while a pipeline is already running
@@ -145,6 +159,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `NSAudioCaptureUsageDescription` added to `electron-builder.yml` entitlements
 
 ### Changed
+
 - `insertTranscript` is now idempotent — deletes any existing transcript row before inserting
 - `transcription:start` guard now accepts `recorded`, `transcribed`, `done`, `error`, `transcribing`, `processing` and normalises to `'recorded'` internally
 - `handleRerun` calls `reset()` first for a clean atom state, and no longer guards on `meeting.transcript` existence
@@ -158,6 +173,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 **macOS menu bar tray**
 
 ### Added
+
 - `src/main/lib/tray.ts` — `Tray` with dynamic context menu
   - Idle: "Start Recording"
   - Active: "● Recording…", "Stop Recording", "Take Screenshot"
@@ -174,6 +190,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 **desktopCapturer migration — Swift CLI removed**
 
 ### Added
+
 - `src/renderer/src/lib/capture-session.ts` — `CaptureSession` class: `getDisplayMedia` + Web Audio mixing + `MediaRecorder` (1s timeslice, WebM/Opus) + BroadcastChannel events
 - `src/renderer/src/components/SourcePicker.tsx` — screen/window source picker UI
 - `src/main/ipc/capture.ts` — full IPC handler suite:
@@ -187,11 +204,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Migration plan documented at `docs/plans/migration-desktop-capturer.md`
 
 ### Removed
+
 - Swift capture package (`capture/`) and compiled binary (`resources/briefly-capture`)
 - `src/main/lib/capture-cli.ts` — Swift binary spawn helper
 - `build:capture` npm script
 
 ### Changed
+
 - `electron-builder.yml` — `asarUnpack` narrowed to `drizzle/**` only (no native binary)
 - Updated app icon assets (higher resolution)
 
@@ -204,6 +223,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 **Core infrastructure**
+
 - Electron + electron-vite project scaffold (React 19, TypeScript, Tailwind CSS v4, shadcn/ui)
 - SQLite database via `better-sqlite3` + Drizzle ORM; schema: `meetings`, `transcripts`, `summaries`, `screenshots`
 - `resetStuckMeetings()` on startup — recovers meetings interrupted by crash or force-quit
@@ -213,11 +233,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Notification click routing: main fires `navigate` event → `AppShell.tsx` → React Router
 
 **Capture pipeline (Swift CLI — later replaced in v0.1.1)**
+
 - Swift package (`capture/`) using ScreenCaptureKit + AVFoundation + libopus via ffmpeg
 - `src/main/lib/capture-cli.ts` — spawn and manage the Swift binary
 - IPC handlers: `capture:start`, `capture:stop`, `capture:screenshot`
 
 **Transcription pipeline**
+
 - `src/renderer/src/workers/whisper.worker.ts` — `@huggingface/transformers` Web Worker
   - `init` message: configure env, preload ONNX model with progress reporting
   - `transcribe` message: PCM → incremental `chunk` events → `done`
@@ -228,11 +250,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - PCM decoding runs in renderer main thread (`OfflineAudioContext`); `Float32Array` transferred zero-copy to worker
 
 **LLM processing**
+
 - `src/main/lib/llm-client.ts` — OpenAI-compatible chat completion client with map-reduce for long transcripts (> 8000 chars)
 - `src/main/ipc/llm.ts` — `llm:process`: title + summary + to-dos + journal; incremental `llm:progress` events; `llm:done` on completion
 - `llm:test-connection` IPC for settings validation
 
 **UI pages & components**
+
 - Dashboard — today's meetings, record CTA, recent list
 - Recordings — all meetings with full-text search and status filter
 - Transcript — tabbed view: Transcript (live streaming chunks), Summary, To-Dos, Journal; export to Markdown; delete confirmation
@@ -242,9 +266,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `StatusBadge`, `AudioWaveform`, `MeetingCard`, `FilterBar`, `SearchBar`, `TodoList`, `JournalPanel`, `SummaryPanel`, `TranscriptViewer`
 
 **Global shortcut**
+
 - `⌘⇧R` registered via `globalShortcut` → `shortcut:toggle-recording` IPC → renderer recording toggle
 
 **Developer tooling**
+
 - `bun.lock` — Bun lockfile (use `bun install` / `bun add`)
 - ESLint, Prettier, TypeScript strict mode (`typecheck:node` + `typecheck:web`)
 - `drizzle-kit` for schema migrations
