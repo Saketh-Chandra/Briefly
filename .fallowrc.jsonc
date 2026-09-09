@@ -4,7 +4,8 @@
     "electron.vite.config.ts",
     "src/main/index.ts",
     "src/preload/index.ts",
-    "src/renderer/src/main.tsx"
+    "src/renderer/src/main.tsx",
+    "scripts/ci-summary.ts"
   ],
   // Ambient declaration files — type-only surfaces, not real source files
   "ignorePatterns": [

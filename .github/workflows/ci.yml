@@ -20,13 +20,24 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run tests
+        id: test
         run: npm test
 
       - name: Type check
+        id: typecheck
         run: npm run typecheck
 
       - name: Lint
+        id: lint
         run: npm run lint
+
+      - name: Write job summary
+        if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+        run: npm run ci:summary
 
   coverage:
     name: coverage
@@ -40,7 +51,14 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run tests with coverage
+        id: test
         run: npm run test:coverage
+
+      - name: Write job summary
+        if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+        run: npm run ci:summary
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v6

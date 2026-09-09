@@ -32,6 +32,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
     "test:coverage": "npm test -- --coverage",
+    "ci:summary": "bun scripts/ci-summary.ts",
     "pretest": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "start": "electron-vite preview",
@@ -69,6 +70,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@actions/core": "^3.0.1",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",

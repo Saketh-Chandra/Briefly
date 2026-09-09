@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Testing rollout Phases 1–3: Vitest `main`/`renderer` projects, IPC and renderer coverage, GitHub Actions `ci` (required) and `coverage` (report-only), and a maintained [release smoke checklist](docs/release-smoke-checklist.md) for OS-coupled behavior.
+- GitHub Actions job summaries for `ci` and `coverage`: test counts, failed tests, check outcomes, and coverage totals are written with `@actions/core` `summary` on pass and fail.
 
 ---
 

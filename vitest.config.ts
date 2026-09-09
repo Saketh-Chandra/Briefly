@@ -2,8 +2,17 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
+const isGithubActions = process.env.GITHUB_ACTIONS === 'true'
+
 export default defineConfig({
   test: {
+    reporters: isGithubActions
+      ? ['default', 'github-actions', ['json', { outputFile: 'test-results.json' }]]
+      : ['default'],
+    coverage: {
+      reporter: ['text', 'json-summary', 'html'],
+      reportOnFailure: true
+    },
     projects: [
       // ── Lane 1 (main-side pure unit) + Lane 3 (main-process contract) ────────
       {
