@@ -1,6 +1,6 @@
 /**
- * Writes Vitest results (and coverage, when present) to the GitHub Actions job summary.
- * Safe to run after a passing or failing job; missing files produce a short fallback.
+ * Writes Vitest results (and coverage, when present) to the GitHub Actions job summary
+ * as GitHub Flavored Markdown via @actions/core.
  */
 import * as core from '@actions/core'
 import { existsSync, readFileSync } from 'node:fs'
@@ -14,7 +14,6 @@ const COVERAGE_METRICS = ['lines', 'statements', 'functions', 'branches'] as con
 
 type StepOutcome = 'success' | 'failure' | 'cancelled' | 'skipped'
 type Lane = 'main' | 'renderer'
-type TableRows = Parameters<typeof core.summary.addTable>[0]
 
 interface JsonRead<T> {
   missing?: boolean
@@ -89,16 +88,25 @@ function readJson<T>(path: string): JsonRead<T> {
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
+function escapeCell(value: string): string {
+  return value.replaceAll('|', '\\|').replaceAll(/\r?\n/g, ' ')
 }
 
-function code(value: string): string {
-  return `<code>${escapeHtml(value)}</code>`
+function mdTable(headers: string[], rows: string[][]): string {
+  const line = (cells: string[]): string => `| ${cells.map(escapeCell).join(' | ')} |`
+  const sep = `| ${headers.map(() => '---').join(' | ')} |`
+  return [line(headers), sep, ...rows.map(line)].join('\n')
+}
+
+function mdCode(value: string): string {
+  const ticks = value.includes('`') ? '``' : '`'
+  return `${ticks}${value}${ticks}`
+}
+
+function mdFence(body: string): string {
+  let ticks = '```'
+  while (body.includes(ticks)) ticks += '`'
+  return `${ticks}\n${body}\n${ticks}`
 }
 
 function relPath(file: string): string {
@@ -193,11 +201,7 @@ function failedAssertions(results: VitestJsonResults): FailedAssertion[] {
   return rows
 }
 
-function headerRow(...labels: string[]): TableRows[number] {
-  return labels.map((data) => ({ data, header: true }))
-}
-
-function addChecks(): void {
+function renderChecks(): string[] {
   const checks: Array<[string, string]> = (
     [
       ['Tests', process.env.TEST_OUTCOME ?? ''],
@@ -206,149 +210,158 @@ function addChecks(): void {
     ] satisfies Array<[string, string]>
   ).filter(([, outcome]) => Boolean(outcome))
 
-  if (checks.length === 0) return
+  if (checks.length === 0) return []
 
-  core.summary
-    .addHeading('Checks', 2)
-    .addTable([
-      headerRow('Check', 'Result'),
-      ...checks.map(([name, outcome]) => [
-        name,
-        `${outcomeEmoji(outcome)} ${outcomeLabel(outcome)}`
-      ])
-    ])
+  return [
+    '## Checks',
+    '',
+    mdTable(
+      ['Check', 'Result'],
+      checks.map(([name, outcome]) => [name, `${outcomeEmoji(outcome)} ${outcomeLabel(outcome)}`])
+    ),
+    ''
+  ]
 }
 
-function addTests(resultsFile: JsonRead<VitestJsonResults>): void {
-  core.summary.addHeading('Tests', 2)
-
+function renderTests(resultsFile: JsonRead<VitestJsonResults>): string[] {
   if (resultsFile.missing) {
     core.warning('No test-results.json was produced')
-    core.summary.addQuote(
-      `No ${code('test-results.json')} was produced. The test step may have failed before Vitest wrote a report.`
-    )
-    return
+    return [
+      '## Tests',
+      '',
+      `No ${mdCode('test-results.json')} was produced. The test step may have failed before Vitest wrote a report.`,
+      ''
+    ]
   }
 
   if (resultsFile.error) {
     core.warning(`Could not parse test-results.json: ${resultsFile.error}`)
-    core.summary.addQuote(
-      `Could not parse ${code('test-results.json')}: ${escapeHtml(resultsFile.error)}`
-    )
-    return
+    return [
+      '## Tests',
+      '',
+      `Could not parse ${mdCode('test-results.json')}: ${resultsFile.error}`,
+      ''
+    ]
   }
 
   const results = resultsFile.data
   if (!results) {
-    core.summary.addQuote('Test results were empty.')
-    return
+    return ['## Tests', '', 'Test results were empty.', '']
   }
 
   const skipped = (results.numPendingTests ?? 0) + (results.numTodoTests ?? 0)
   const lanes = laneCounts(results)
   const failed = failedAssertions(results)
-
-  core.summary
-    .addTable([
-      headerRow('Stat', 'Count'),
-      ['Passed', String(results.numPassedTests)],
-      ['Failed', String(results.numFailedTests)],
-      ['Skipped / todo', String(skipped)],
-      ['Total', String(results.numTotalTests)],
-      ['Duration', formatDuration(testDurationMs(results))]
-    ])
-    .addHeading('Projects', 3)
-    .addTable([
-      headerRow('Project', 'Passed', 'Failed', 'Skipped'),
-      ['main', String(lanes.main.passed), String(lanes.main.failed), String(lanes.main.skipped)],
+  const lines = [
+    '## Tests',
+    '',
+    mdTable(
+      ['Stat', 'Count'],
       [
-        'renderer',
-        String(lanes.renderer.passed),
-        String(lanes.renderer.failed),
-        String(lanes.renderer.skipped)
+        ['Passed', String(results.numPassedTests)],
+        ['Failed', String(results.numFailedTests)],
+        ['Skipped / todo', String(skipped)],
+        ['Total', String(results.numTotalTests)],
+        ['Duration', formatDuration(testDurationMs(results))]
       ]
-    ])
+    ),
+    '',
+    '### Projects',
+    '',
+    mdTable(
+      ['Project', 'Passed', 'Failed', 'Skipped'],
+      [
+        ['main', String(lanes.main.passed), String(lanes.main.failed), String(lanes.main.skipped)],
+        [
+          'renderer',
+          String(lanes.renderer.passed),
+          String(lanes.renderer.failed),
+          String(lanes.renderer.skipped)
+        ]
+      ]
+    ),
+    ''
+  ]
 
   if (failed.length > 0) {
     const shown = failed.slice(0, MAX_FAILED_ROWS)
-    core.summary
-      .addHeading('Failed tests', 3)
-      .addTable([
-        headerRow('File', 'Test'),
-        ...shown.map((row) => [`<code>${escapeHtml(row.file)}</code>`, escapeHtml(row.name)])
-      ])
+    lines.push(
+      '### Failed tests',
+      '',
+      mdTable(
+        ['File', 'Test'],
+        shown.map((row) => [mdCode(row.file), row.name])
+      ),
+      ''
+    )
 
     if (failed.length > shown.length) {
-      core.summary.addRaw(`<p><em>…and ${failed.length - shown.length} more.</em></p>`, true)
+      lines.push(`*…and ${failed.length - shown.length} more.*`, '')
     }
 
-    const detail = shown
-      .filter((row) => row.message)
-      .map((row) => {
+    const details = shown.filter((row) => row.message)
+    if (details.length > 0) {
+      lines.push('### Failure details', '')
+      for (const row of details) {
         const body = row.message.slice(0, MAX_FAILURE_CHARS)
         const truncated = row.message.length > MAX_FAILURE_CHARS ? '\n…(truncated)' : ''
-        return [
-          `<h4><code>${escapeHtml(row.file)}</code></h4>`,
-          `<p>${escapeHtml(row.name)}</p>`,
-          `<pre><code>${escapeHtml(body + truncated)}</code></pre>`
-        ].join('\n')
-      })
-      .join('\n')
-
-    if (detail) {
-      core.summary.addDetails('Failure details', detail)
+        lines.push(`#### ${mdCode(row.file)}`, '', row.name, '', mdFence(body + truncated), '')
+      }
     }
   }
 
   const snapshot = results.snapshot
   if (snapshot && ((snapshot.unmatched ?? 0) > 0 || (snapshot.filesUnmatched ?? 0) > 0)) {
-    core.summary
-      .addHeading('Snapshots', 3)
-      .addRaw(
-        `<p>${snapshot.unmatched ?? 0} unmatched snapshot(s) across ${snapshot.filesUnmatched ?? 0} file(s).</p>`,
-        true
-      )
+    lines.push(
+      '### Snapshots',
+      '',
+      `${snapshot.unmatched ?? 0} unmatched snapshot(s) across ${snapshot.filesUnmatched ?? 0} file(s).`,
+      ''
+    )
   }
+
+  return lines
 }
 
-function addCoverage(coverageFile: JsonRead<CoverageSummaryFile>): void {
-  core.summary.addHeading('Coverage', 2)
-
+function renderCoverage(coverageFile: JsonRead<CoverageSummaryFile>): string[] {
   if (coverageFile.missing) {
-    core.summary.addQuote(`No ${code('coverage/coverage-summary.json')} was produced.`)
-    return
+    return ['## Coverage', '', `No ${mdCode('coverage/coverage-summary.json')} was produced.`, '']
   }
 
   if (coverageFile.error) {
-    core.summary.addQuote(
-      `Could not parse ${code('coverage/coverage-summary.json')}: ${escapeHtml(coverageFile.error)}`
-    )
-    return
+    return [
+      '## Coverage',
+      '',
+      `Could not parse ${mdCode('coverage/coverage-summary.json')}: ${coverageFile.error}`,
+      ''
+    ]
   }
 
   const summary = coverageFile.data
   if (!summary?.total) {
-    core.summary.addQuote('Coverage summary did not include totals.')
-    return
+    return ['## Coverage', '', 'Coverage summary did not include totals.', '']
   }
 
-  const rows: TableRows = [headerRow('Metric', 'Coverage', 'Covered / Total')]
-  for (const key of COVERAGE_METRICS) {
-    const metric = summary.total[key]
-    if (!metric) continue
-    rows.push([
-      key,
-      `${coverageBadge(metric.pct)} ${formatPct(metric.pct)}`,
-      `${metric.covered} / ${metric.total}`
-    ])
-  }
+  const rows = COVERAGE_METRICS.flatMap((key) => {
+    const metric = summary.total?.[key]
+    if (!metric) return []
+    return [
+      [
+        key,
+        `${coverageBadge(metric.pct)} ${formatPct(metric.pct)}`,
+        `${metric.covered} / ${metric.total}`
+      ]
+    ]
+  })
 
-  core.summary
-    .addTable(rows)
-    .addRaw(
-      `<p><em>HTML report is uploaded as the ${code('coverage-report')} artifact.</em></p>`,
-      true
-    )
+  return [
+    '## Coverage',
+    '',
+    mdTable(['Metric', 'Coverage', 'Covered / Total'], rows),
+    '',
+    `The HTML coverage report is uploaded as the ${mdCode('coverage-report')} artifact.`,
+    ''
+  ]
 }
 
 function overallStatus(resultsFile: JsonRead<VitestJsonResults>): string {
@@ -362,23 +375,32 @@ function overallStatus(resultsFile: JsonRead<VitestJsonResults>): string {
   return '⚠️ unknown'
 }
 
-async function main(): Promise<void> {
+function buildMarkdown(): string {
   const resultsFile = readJson<VitestJsonResults>(RESULTS_PATH)
   const coverageFile = readJson<CoverageSummaryFile>(COVERAGE_PATH)
   const job = process.env.GITHUB_JOB || 'ci'
   const title = job === 'coverage' ? 'Coverage' : 'CI'
   const hasCoverage = Boolean(coverageFile.data?.total) || job === 'coverage'
 
-  core.summary
-    .addHeading(title)
-    .addRaw(`<p><strong>Status:</strong> ${overallStatus(resultsFile)}</p>`, true)
-
-  addChecks()
-  addTests(resultsFile)
+  const lines = [
+    `# ${title}`,
+    '',
+    `**Status:** ${overallStatus(resultsFile)}`,
+    '',
+    ...renderChecks(),
+    ...renderTests(resultsFile)
+  ]
 
   if (hasCoverage) {
-    addCoverage(coverageFile)
+    lines.push(...renderCoverage(coverageFile))
   }
+
+  return `${lines.join('\n').trim()}\n`
+}
+
+async function main(): Promise<void> {
+  const markdown = buildMarkdown()
+  core.summary.addRaw(markdown)
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     await core.summary.write()
