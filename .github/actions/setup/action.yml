@@ -21,8 +21,6 @@ runs:
 
     - name: Set up Bun
       uses: oven-sh/setup-bun@v2
-      with:
-        cache: true
 
     - name: Cache Bun dependencies
       uses: actions/cache@v5
