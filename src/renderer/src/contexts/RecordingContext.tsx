@@ -11,6 +11,7 @@ import {
   type RecordingState,
   type RecordingStatus
 } from '../atoms/recording'
+import { api } from '@/lib/api'
 
 export type { RecordingStatus }
 
@@ -33,7 +34,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }): 
 
   // CaptureSession events via BroadcastChannel → atom updates
   useEffect(() => {
-    const unsub = window.api.onCaptureEvent((event) => {
+    const unsub = api.onCaptureEvent((event) => {
       if (event.type === 'level') {
         setRecording((prev): RecordingState => ({ ...prev, audioLevel: event.rms }))
       }

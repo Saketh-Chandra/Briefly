@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import TitleBar from './TitleBar'
 import Sidebar from './Sidebar'
 import { useRecording } from '../../contexts/RecordingContext'
+import { api } from '@/lib/api'
 
 export default function AppShell(): React.JSX.Element {
   const { toggleRecording, startRecording, stopRecording, state } = useRecording()
@@ -11,7 +12,7 @@ export default function AppShell(): React.JSX.Element {
 
   // Redirect to onboarding if first run
   useEffect(() => {
-    window.api
+    api
       .getSettings()
       .then((s) => {
         if (!s.onboardingComplete) {
@@ -24,25 +25,25 @@ export default function AppShell(): React.JSX.Element {
   }, [navigate])
 
   useEffect(() => {
-    return window.api.onToggleRecordingShortcut(() => void toggleRecording())
+    return api.onToggleRecordingShortcut(() => void toggleRecording())
   }, [toggleRecording])
 
   // macOS tray commands — same code paths as UI buttons, React owns all state
   useEffect(() => {
-    return window.api.onTrayCommand((command) => {
+    return api.onTrayCommand((command) => {
       if (command === 'start') {
         if (state.status === 'idle') void startRecording(true)
       } else if (command === 'stop') {
         if (state.status === 'recording') void stopRecording()
       } else if (command === 'screenshot') {
-        void window.api.takeScreenshot()
+        void api.takeScreenshot()
       }
     })
   }, [startRecording, stopRecording, state.status])
 
   // Navigate to the correct page when a system notification is clicked
   useEffect(() => {
-    return window.api.onNavigate((path) => navigate(path))
+    return api.onNavigate((path) => navigate(path))
   }, [navigate])
 
   return (

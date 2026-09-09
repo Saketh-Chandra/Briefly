@@ -13,6 +13,7 @@ import {
   searchTermAtom,
   isSearchingAtom
 } from '../atoms/pages'
+import { api } from '../lib/api'
 import { useDeleteMeeting } from '../hooks/useDeleteMeeting'
 
 export default function Recordings(): React.JSX.Element {
@@ -24,32 +25,32 @@ export default function Recordings(): React.JSX.Element {
   const searchTerm = useAtomValue(searchTermAtom)
   const isSearching = useAtomValue(isSearchingAtom)
   const searchResults = useAtomValue(searchResultsAtom)
-  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(() =>
-    void loadMeetings()
+  const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
+    () => void loadMeetings().catch(() => {})
   )
 
   useEffect(() => {
-    void loadMeetings()
+    void loadMeetings().catch(() => {})
     // Clear stale search results when the meetings list reloads
     setSearchResults(null)
   }, [loadMeetings, setSearchResults])
 
   // Reload when a recording saves
   useEffect(() => {
-    const unsub = window.api.onCaptureEvent((event) => {
-      if (event.type === 'stopped') void loadMeetings()
+    const unsub = api.onCaptureEvent((event) => {
+      if (event.type === 'stopped') void loadMeetings().catch(() => {})
     })
     return unsub
   }, [loadMeetings])
 
   // Reload when transcription or LLM finishes so status badges update
   useEffect(() => {
-    const unsub = window.api.onTranscriptionStatus(() => void loadMeetings())
+    const unsub = api.onTranscriptionStatus(() => void loadMeetings().catch(() => {}))
     return unsub
   }, [loadMeetings])
 
   useEffect(() => {
-    const unsub = window.api.onLlmDone(() => void loadMeetings())
+    const unsub = api.onLlmDone(() => void loadMeetings().catch(() => {}))
     return unsub
   }, [loadMeetings])
 
@@ -58,7 +59,7 @@ export default function Recordings(): React.JSX.Element {
       <h1 className="mb-6 font-display text-2xl italic text-foreground/80">Recordings</h1>
 
       <div className="mb-5 flex flex-col gap-3">
-        <SearchBar onSearch={(q) => void runSearch(q)} />
+        <SearchBar onSearch={(q) => void runSearch(q).catch(() => {})} />
         <FilterBar active={statusFilter} onChange={setStatusFilter} />
       </div>
 
@@ -76,14 +77,14 @@ export default function Recordings(): React.JSX.Element {
         meetings={filtered}
         onDelete={handleDelete}
         flat={!!searchTerm}
-        emptyMessage={
-          searchTerm ? `No results for "${searchTerm}"` : 'No recordings yet.'
-        }
+        emptyMessage={searchTerm ? `No results for "${searchTerm}"` : 'No recordings yet.'}
       />
 
       <DeleteMeetingDialog
         open={deleteId !== null}
-        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null)
+        }}
         onConfirm={confirmDelete}
       />
     </div>

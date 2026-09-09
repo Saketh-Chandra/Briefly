@@ -1,6 +1,7 @@
 import React from 'react'
 import { Monitor, Mic, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '../ui/button'
+import { api } from '@/lib/api'
 
 interface PermissionsStepProps {
   permissions: { screen: string; mic: string }
@@ -19,12 +20,12 @@ export default function PermissionsStep({
   const micGranted = permissions.mic === 'granted'
 
   async function handleGrantMic(): Promise<void> {
-    await window.api.requestMicPermission()
+    await api.requestMicPermission()
     await onRefresh()
   }
 
   async function handleOpenScreenSettings(): Promise<void> {
-    await window.api.openScreenRecordingSettings()
+    await api.openScreenRecordingSettings()
   }
 
   return (

@@ -34,18 +34,18 @@ For the latest implementation snapshot see [docs/current-state.md](docs/current-
 
 ## Tech Stack
 
-| Area | Technology |
-| --- | --- |
-| Desktop shell | Electron 35 + electron-vite |
-| Renderer | React 19 + TypeScript |
-| State management | Jotai |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| Audio capture | `desktopCapturer` + Web Audio API + `MediaRecorder` (WebM/Opus) |
-| Local transcription | `@huggingface/transformers` in a Web Worker |
-| Storage | SQLite + `better-sqlite3` + Drizzle ORM |
-| Secrets | macOS Keychain via `keytar` |
-| Proxy support | Electron `session` proxy via configurable settings |
-| Code hygiene | ESLint + Fallow |
+| Area                | Technology                                                      |
+| ------------------- | --------------------------------------------------------------- |
+| Desktop shell       | Electron 35 + electron-vite                                     |
+| Renderer            | React 19 + TypeScript                                           |
+| State management    | Jotai                                                           |
+| Styling             | Tailwind CSS v4 + shadcn/ui                                     |
+| Audio capture       | `desktopCapturer` + Web Audio API + `MediaRecorder` (WebM/Opus) |
+| Local transcription | `@huggingface/transformers` in a Web Worker                     |
+| Storage             | SQLite + `better-sqlite3` + Drizzle ORM                         |
+| Secrets             | macOS Keychain via `keytar`                                     |
+| Proxy support       | Electron `session` proxy via configurable settings              |
+| Code hygiene        | ESLint + Fallow                                                 |
 
 ---
 
@@ -61,9 +61,11 @@ For the latest implementation snapshot see [docs/current-state.md](docs/current-
 ## Prerequisites
 
 - macOS 14.2+
-- Node.js 20+
+- Node.js 24+
 - [Bun](https://bun.sh) (used for installing and managing dependencies)
 - Screen Recording and Microphone permissions granted to the app
+
+The repo pins Node `24.16.0` in `.nvmrc` for local development and CI alignment.
 
 > **No Xcode or native toolchain is needed.** The capture pipeline is implemented entirely in Electron/Web APIs — there is no Swift binary.
 
@@ -150,20 +152,20 @@ npm run rebuild
 
 ### Keyboard Shortcut
 
-| Shortcut | Action |
-| --- | --- |
-| `⌘⇧R` | Toggle recording start / stop |
+| Shortcut | Action                        |
+| -------- | ----------------------------- |
+| `⌘⇧R`    | Toggle recording start / stop |
 
 ### Deep Links
 
 `briefly://` is registered as a URL scheme on first launch. You can trigger actions from Raycast, Alfred, a terminal, or any URL launcher:
 
-| URL | Action |
-| --- | --- |
-| `briefly://record/start` | Start recording |
-| `briefly://record/stop` | Stop recording |
-| `briefly://record/screenshot` | Take a screenshot |
-| `briefly://app/open` | Show and focus the window |
+| URL                           | Action                    |
+| ----------------------------- | ------------------------- |
+| `briefly://record/start`      | Start recording           |
+| `briefly://record/stop`       | Stop recording            |
+| `briefly://record/screenshot` | Take a screenshot         |
+| `briefly://app/open`          | Show and focus the window |
 
 ---
 
@@ -173,66 +175,66 @@ All channels are invoked via `window.api.*` from the renderer (typed in `src/pre
 
 ### Capture
 
-| `window.api` method | IPC channel | Description |
-| --- | --- | --- |
-| `getSources()` | `capture:get-sources` | List available screen/window sources |
-| `checkPermissions()` | `capture:check-permissions` | Returns `{ screen, mic }` permission states |
-| `requestMicPermission()` | `capture:request-mic-permission` | Prompt for microphone access |
-| `startRecording(opts)` | `capture:start` | Create session + DB row, store pending source ID |
-| `writeAudioChunk(id, buf)` | `capture:write-chunk` | Append WebM chunk to disk |
-| `finalizeRecording(id, dur)` | `capture:finalize` | Close session, update duration + status |
-| `takeScreenshot()` | `capture:screenshot-save` | Save high-res screenshot for the active session |
-| `onCaptureEvent(cb)` | BroadcastChannel | Real-time recording events (no IPC round-trip) |
+| `window.api` method          | IPC channel                      | Description                                      |
+| ---------------------------- | -------------------------------- | ------------------------------------------------ |
+| `getSources()`               | `capture:get-sources`            | List available screen/window sources             |
+| `checkPermissions()`         | `capture:check-permissions`      | Returns `{ screen, mic }` permission states      |
+| `requestMicPermission()`     | `capture:request-mic-permission` | Prompt for microphone access                     |
+| `startRecording(opts)`       | `capture:start`                  | Create session + DB row, store pending source ID |
+| `writeAudioChunk(id, buf)`   | `capture:write-chunk`            | Append WebM chunk to disk                        |
+| `finalizeRecording(id, dur)` | `capture:finalize`               | Close session, update duration + status          |
+| `takeScreenshot()`           | `capture:screenshot-save`        | Save high-res screenshot for the active session  |
+| `onCaptureEvent(cb)`         | BroadcastChannel                 | Real-time recording events (no IPC round-trip)   |
 
 ### Storage
 
-| `window.api` method | IPC channel | Description |
-| --- | --- | --- |
-| `getMeetings()` | `storage:get-meetings` | All meetings |
-| `getMeeting(id)` | `storage:get-meeting` | Single meeting with transcript + summary |
-| `getMeetingsByDate(date)` | `storage:get-meetings-by-date` | Meetings for a given ISO date |
-| `searchMeetings(query)` | `storage:search` | FTS5 BM25 search across transcript, summary, decisions, journal + title; up to 50 results ranked by relevance |
-| `deleteMeeting(id)` | `storage:delete-meeting` | Delete meeting + audio file |
-| `saveTranscript(params)` | `storage:save-transcript` | Persist Whisper output, set status `transcribed` |
-| `getTranscript(id)` | `storage:get-transcript` | Fetch transcript for a meeting |
-| `resetForReprocessing(id)` | `storage:reset-for-reprocessing` | Delete transcript + summary, reset to `recorded` |
-| `updateTodo(id, idx, done)` | `storage:update-todo` | Toggle a to-do item |
-| `updateJournal(id, text)` | `storage:update-journal` | Edit the journal entry |
-| `getDiskUsage()` | `storage:disk-usage` | Audio bytes + userData path |
-| `readAudio(path)` | `storage:read-audio` | Read audio file as ArrayBuffer |
-| `revealInFinder()` | `storage:reveal-in-finder` | Open userData in Finder |
-| `clearAllRecordings()` | `storage:clear-all` | Delete all meetings and audio files |
+| `window.api` method         | IPC channel                      | Description                                                                                                   |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `getMeetings()`             | `storage:get-meetings`           | All meetings                                                                                                  |
+| `getMeeting(id)`            | `storage:get-meeting`            | Single meeting with transcript + summary                                                                      |
+| `getMeetingsByDate(date)`   | `storage:get-meetings-by-date`   | Meetings for a given ISO date                                                                                 |
+| `searchMeetings(query)`     | `storage:search`                 | FTS5 BM25 search across transcript, summary, decisions, journal + title; up to 50 results ranked by relevance |
+| `deleteMeeting(id)`         | `storage:delete-meeting`         | Delete meeting + audio file                                                                                   |
+| `saveTranscript(params)`    | `storage:save-transcript`        | Persist Whisper output, set status `transcribed`                                                              |
+| `getTranscript(id)`         | `storage:get-transcript`         | Fetch transcript for a meeting                                                                                |
+| `resetForReprocessing(id)`  | `storage:reset-for-reprocessing` | Delete transcript + summary, reset to `recorded`                                                              |
+| `updateTodo(id, idx, done)` | `storage:update-todo`            | Toggle a to-do item                                                                                           |
+| `updateJournal(id, text)`   | `storage:update-journal`         | Edit the journal entry                                                                                        |
+| `getDiskUsage()`            | `storage:disk-usage`             | Audio bytes + userData path                                                                                   |
+| `readAudio(path)`           | `storage:read-audio`             | Read audio file as ArrayBuffer                                                                                |
+| `revealInFinder()`          | `storage:reveal-in-finder`       | Open userData in Finder                                                                                       |
+| `clearAllRecordings()`      | `storage:clear-all`              | Delete all meetings and audio files                                                                           |
 
 ### Transcription
 
-| `window.api` method | IPC channel | Description |
-| --- | --- | --- |
-| `getPaths()` | `transcription:get-paths` | `{ userData, modelCachePath }` |
-| `startTranscription(id)` | `transcription:start` | Validate meeting + audio, set status `transcribing` |
-| `getModelStatus(modelId)` | `transcription:model-status` | `{ present, sizeBytes }` |
-| `deleteModel(modelId)` | `transcription:delete-model` | Remove cached model files |
-| `onTranscriptionStatus(cb)` | `transcription:status` (listen) | Status push events from main |
+| `window.api` method         | IPC channel                     | Description                                         |
+| --------------------------- | ------------------------------- | --------------------------------------------------- |
+| `getPaths()`                | `transcription:get-paths`       | `{ userData, modelCachePath }`                      |
+| `startTranscription(id)`    | `transcription:start`           | Validate meeting + audio, set status `transcribing` |
+| `getModelStatus(modelId)`   | `transcription:model-status`    | `{ present, sizeBytes }`                            |
+| `deleteModel(modelId)`      | `transcription:delete-model`    | Remove cached model files                           |
+| `onTranscriptionStatus(cb)` | `transcription:status` (listen) | Status push events from main                        |
 
 ### LLM
 
-| `window.api` method | IPC channel | Description |
-| --- | --- | --- |
-| `processTranscript(id)` | `llm:process` | Run summary + key decisions + participants + todos + journal pipeline |
-| `testLlmConnection()` | `llm:test-connection` | Ping the configured LLM endpoint |
-| `onLlmProgress(cb)` | `llm:progress` (listen) | Step events `{ meetingId, step, label }` |
-| `onLlmDone(cb)` | `llm:done` (listen) | Completion event `{ meetingId }` |
+| `window.api` method     | IPC channel             | Description                                                           |
+| ----------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `processTranscript(id)` | `llm:process`           | Run summary + key decisions + participants + todos + journal pipeline |
+| `testLlmConnection()`   | `llm:test-connection`   | Ping the configured LLM endpoint                                      |
+| `onLlmProgress(cb)`     | `llm:progress` (listen) | Step events `{ meetingId, step, label }`                              |
+| `onLlmDone(cb)`         | `llm:done` (listen)     | Completion event `{ meetingId }`                                      |
 
 ### Settings & Notifications
 
-| `window.api` method | IPC channel | Description |
-| --- | --- | --- |
-| `getSettings()` | `settings:get` | Returns `AppSettings` + `llm.hasApiKey` flag |
-| `saveSettings(partial)` | `settings:save` | Persists settings; `llmApiKey` goes to Keychain |
-| `testMirror(url)` | `hf:test-mirror` | HEAD request to HF mirror via `electron.net` |
-| `showNotification(t, b)` | `notify:show` | Trigger an Electron system notification |
-| `onNavigate(cb)` | `navigate` (listen) | Notification click → React Router navigation |
-| `onTrayCommand(cb)` | `tray:command` (listen) | Menu bar tray action |
-| `onToggleRecordingShortcut(cb)` | `shortcut:toggle-recording` (listen) | Global `⌘⇧R` shortcut |
+| `window.api` method             | IPC channel                          | Description                                     |
+| ------------------------------- | ------------------------------------ | ----------------------------------------------- |
+| `getSettings()`                 | `settings:get`                       | Returns `AppSettings` + `llm.hasApiKey` flag    |
+| `saveSettings(partial)`         | `settings:save`                      | Persists settings; `llmApiKey` goes to Keychain |
+| `testMirror(url)`               | `hf:test-mirror`                     | HEAD request to HF mirror via `electron.net`    |
+| `showNotification(t, b)`        | `notify:show`                        | Trigger an Electron system notification         |
+| `onNavigate(cb)`                | `navigate` (listen)                  | Notification click → React Router navigation    |
+| `onTrayCommand(cb)`             | `tray:command` (listen)              | Menu bar tray action                            |
+| `onToggleRecordingShortcut(cb)` | `shortcut:toggle-recording` (listen) | Global `⌘⇧R` shortcut                           |
 
 ---
 
@@ -290,6 +292,8 @@ Renderer (React)
 - [docs/current-state.md](docs/current-state.md) — latest implementation snapshot and pending work
 - [docs/context.md](docs/context.md) — full architecture and codebase reference
 - [docs/plans/README.md](docs/plans/README.md) — phased implementation plan
+- [docs/plans/testing-phase-1.md](docs/plans/testing-phase-1.md) — test lanes, CI gate, and link to the release smoke checklist
+- [docs/adr/0001-layered-testing-and-ci-gate.md](docs/adr/0001-layered-testing-and-ci-gate.md) — durable testing architecture and merge-gate decisions
 
 ---
 
@@ -298,12 +302,13 @@ Renderer (React)
 1. Fork the repo and create a feature branch.
 2. Install dependencies with `bun install`.
 3. Run `npm run typecheck`, `npm run lint`, and `npx fallow dead-code` before opening a PR.
-4. Keep PRs focused; one concern per PR.
-5. API keys and audio files are never committed — check `.gitignore` before staging.
+4. Follow [docs/plans/testing-phase-1.md](docs/plans/testing-phase-1.md) for the test lanes and CI gate, and [docs/release-smoke-checklist.md](docs/release-smoke-checklist.md) before a release.
+5. PRs must keep `npm test`, `npm run typecheck`, and `npm run lint` green.
+6. Keep PRs focused; one concern per PR.
+7. API keys and audio files are never committed — check `.gitignore` before staging.
 
 ---
 
 ## License
 
 BSD 3-Clause License. See [LICENSE](LICENSE).
-

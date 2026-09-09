@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from '@/lib/api'
 
 /**
  * Shared delete-meeting state and handlers for pages that show a meeting list.
@@ -19,7 +20,7 @@ export function useDeleteMeeting(onDeleted: () => void): {
 
   async function confirmDelete(): Promise<void> {
     if (deleteId === null) return
-    await window.api.deleteMeeting(deleteId)
+    await api.deleteMeeting(deleteId)
     setDeleteId(null)
     onDeleted()
   }

@@ -1,0 +1,3 @@
+# Adopt Layered Testing And A Required CI Gate
+
+Briefly will introduce testing in four lanes: deterministic unit tests, renderer component tests through a renderer-owned API adapter, main-process IPC contract tests backed by real migrated SQLite, and a manual macOS and Windows smoke checklist for OS-coupled behavior. We use a single Vitest config with `main` and `renderer` projects, Bun-based CI with one required Linux `ci` job for `npm test`, `npm run typecheck`, and `npm run lint`, and a separate non-blocking coverage job, because the main product risk sits at the renderer, Electron IPC, and SQLite boundaries and mocking the DB or the OS would give false confidence.

@@ -1,6 +1,7 @@
 import { atom } from 'jotai'
 import { CaptureSession } from '../lib/capture-session'
 import type { CaptureSessionOpts } from '../lib/capture-session'
+import { api } from '../lib/api'
 
 export type RecordingStatus = 'idle' | 'recording' | 'stopping' | 'saving'
 
@@ -55,7 +56,7 @@ export const startRecordingAtom = atom(
     const sourceId = get(selectedSourceIdAtom)
 
     try {
-      const result = await window.api.startRecording({ mixMic, sourceId })
+      const result = await api.startRecording({ mixMic, sourceId })
 
       const sessionOpts: CaptureSessionOpts = { mixMic }
       const session = new CaptureSession(result.sessionId, sessionOpts)

@@ -9,16 +9,16 @@ import type { Todo } from '../lib/types'
 import { notifySummaryReady, notifyError } from '../lib/notifications'
 
 // Threshold: if transcript is longer than this, use chunked map-reduce
-const CHUNK_THRESHOLD_CHARS = 12000
+export const CHUNK_THRESHOLD_CHARS = 12000
 // Each chunk is ~3000 tokens; 4 chars ≈ 1 token
-const CHUNK_SIZE_CHARS = 12000
-const CHUNK_OVERLAP_CHARS = 800
+export const CHUNK_SIZE_CHARS = 12000
+export const CHUNK_OVERLAP_CHARS = 800
 
 // ---------------------------------------------------------------------------
 // Chunking helpers
 // ---------------------------------------------------------------------------
 
-function chunkText(text: string): string[] {
+export function chunkText(text: string): string[] {
   if (text.length <= CHUNK_THRESHOLD_CHARS) return [text]
   const chunks: string[] = []
   let start = 0

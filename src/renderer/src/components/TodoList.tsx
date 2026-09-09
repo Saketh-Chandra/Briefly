@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import type { Todo } from '../../../main/lib/types'
+import { api } from '@/lib/api'
 
 interface TodoListProps {
   meetingId: number
@@ -21,7 +22,7 @@ export default function TodoList({
   async function toggle(index: number): Promise<void> {
     const updated = todos.map((t, i) => (i === index ? { ...t, done: !t.done } : t))
     setTodos(updated)
-    await window.api.updateTodo(meetingId, index, updated[index].done)
+    await api.updateTodo(meetingId, index, updated[index].done)
   }
 
   if (todos.length === 0) {

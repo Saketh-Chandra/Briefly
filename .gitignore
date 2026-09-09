@@ -3,6 +3,8 @@ dist
 out
 .DS_Store
 .eslintcache
+coverage
+test-results.json
 *.log*
 *.tsbuildinfo
 .env

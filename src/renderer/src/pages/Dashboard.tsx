@@ -10,6 +10,7 @@ import DeleteMeetingDialog from '../components/DeleteMeetingDialog'
 import { liveMeetingsAtom, loadMeetingsAtom } from '../atoms/pages'
 import { isSupportedMacOSVersion } from '../lib/platform'
 import { useDeleteMeeting } from '../hooks/useDeleteMeeting'
+import { api } from '../lib/api'
 
 export default function Dashboard(): React.JSX.Element {
   const meetings = useAtomValue(liveMeetingsAtom)
@@ -17,17 +18,17 @@ export default function Dashboard(): React.JSX.Element {
   const navigate = useNavigate()
   const [unsupportedOS, setUnsupportedOS] = useState(false)
   const { deleteId, setDeleteId, handleDelete, confirmDelete } = useDeleteMeeting(
-    () => void loadMeetings()
+    () => void loadMeetings().catch(() => {})
   )
 
   // Initial load
   useEffect(() => {
-    void loadMeetings()
+    void loadMeetings().catch(() => {})
   }, [loadMeetings])
 
   // Check macOS version — system audio capture requires 14.2+
   useEffect(() => {
-    window.api
+    api
       .getOsInfo()
       .then(({ darwinVersion }) => {
         if (!isSupportedMacOSVersion(darwinVersion)) setUnsupportedOS(true)
@@ -37,14 +38,14 @@ export default function Dashboard(): React.JSX.Element {
 
   // Reload when a recording finishes saving
   useEffect(() => {
-    const unsub = window.api.onCaptureEvent((event) => {
-      if (event.type === 'stopped') void loadMeetings()
+    const unsub = api.onCaptureEvent((event) => {
+      if (event.type === 'stopped') void loadMeetings().catch(() => {})
     })
     return unsub
   }, [loadMeetings])
 
   async function handleImport(): Promise<void> {
-    const result = await window.api.importAudioFile()
+    const result = await api.importAudioFile()
     if (result) {
       navigate(`/recordings/${result.meetingId}`)
     }

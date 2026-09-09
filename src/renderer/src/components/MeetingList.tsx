@@ -23,7 +23,12 @@ function dateLabel(dateStr: string): string {
   return format(d, 'EEEE, MMMM d, yyyy')
 }
 
-export default function MeetingList({ meetings, onDelete, flat = false, emptyMessage }: MeetingListProps): React.JSX.Element {
+export default function MeetingList({
+  meetings,
+  onDelete,
+  flat = false,
+  emptyMessage
+}: MeetingListProps): React.JSX.Element {
   const navigate = useNavigate()
 
   const groups = useMemo(() => {
