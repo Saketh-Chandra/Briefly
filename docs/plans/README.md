@@ -6,20 +6,20 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| App shell | Electron 39+ |
-| Build tooling | electron-vite |
-| Renderer | React 19 + TypeScript |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| Audio capture | Swift CLI — `capture/` (ScreenCaptureKit + AVAudioEngine) |
-| Transcription | Transformers.js v3 + Whisper WebGPU (ONNX) |
-| LLM | OpenAI-compatible API (Azure OpenAI / local) |
-| Storage | SQLite via better-sqlite3 + Drizzle ORM (main process) |
-| Migrations | drizzle-kit — schema-based, auto-applied at startup |
-| IPC | Electron contextBridge typed API |
-| API keys | macOS Keychain via keytar |
-| Package manager | Bun |
+| Layer           | Technology                                                |
+| --------------- | --------------------------------------------------------- |
+| App shell       | Electron 39+                                              |
+| Build tooling   | electron-vite                                             |
+| Renderer        | React 19 + TypeScript                                     |
+| Styling         | Tailwind CSS v4 + shadcn/ui                               |
+| Audio capture   | Swift CLI — `capture/` (ScreenCaptureKit + AVAudioEngine) |
+| Transcription   | Transformers.js v3 + Whisper WebGPU (ONNX)                |
+| LLM             | OpenAI-compatible API (Azure OpenAI / local)              |
+| Storage         | SQLite via better-sqlite3 + Drizzle ORM (main process)    |
+| Migrations      | drizzle-kit — schema-based, auto-applied at startup       |
+| IPC             | Electron contextBridge typed API                          |
+| API keys        | macOS Keychain via keytar                                 |
+| Package manager | Bun                                                       |
 
 ---
 
@@ -50,11 +50,11 @@ Electron App
 
 ## Build Phases
 
-| Phase | Description | Status |
-|---|---|---|
+| Phase                                       | Description                                                        | Status      |
+| ------------------------------------------- | ------------------------------------------------------------------ | ----------- |
 | [Phase 1](./phase-1-core-infrastructure.md) | Core infrastructure: Swift CLI, IPC layer, file management, SQLite | ✅ Complete |
-| [Phase 2](./phase-2-processing-pipeline.md) | Processing pipeline: Whisper transcription, LLM post-processing | Planning |
-| [Phase 3](./phase-3-ui.md) | UI: all screens, navigation, settings, journal | Planning |
+| [Phase 2](./phase-2-processing-pipeline.md) | Processing pipeline: Whisper transcription, LLM post-processing    | Planning    |
+| [Phase 3](./phase-3-ui.md)                  | UI: all screens, navigation, settings, journal                     | Planning    |
 
 ---
 
@@ -62,11 +62,11 @@ Electron App
 
 Use these docs for the testing rollout rather than the older product-phase docs above.
 
-| Phase | Description | Status |
-|---|---|---|
-| [Testing Phase 1](./testing-phase-1.md) | Vitest harness, first high-value slices in lanes 1-3, manual smoke checklist | Complete |
-| [Testing Phase 2](./testing-phase-2.md) | Expand automated coverage across renderer pages, renderer state, IPC handlers, and deferred browser-media-heavy seams | Complete |
-| [Testing Phase 3](./testing-phase-3.md) | Harden CI, regression confidence, release checklist ownership, and long-tail workflow coverage | Planned |
+| Phase                                   | Description                                                                                                           | Status      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------- |
+| [Testing Phase 1](./testing-phase-1.md) | Vitest harness, first high-value slices in lanes 1-3, manual smoke checklist                                          | Complete    |
+| [Testing Phase 2](./testing-phase-2.md) | Expand automated coverage across renderer pages, renderer state, IPC handlers, and deferred browser-media-heavy seams | Complete    |
+| [Testing Phase 3](./testing-phase-3.md) | Harden CI, regression confidence, release checklist ownership, and long-tail workflow coverage                        | In progress |
 
 Follow-up notes (not a phase): [Testing Phase 2 quality](./notes/testing-phase-2-quality.md) — address from Phase 3.
 
@@ -214,11 +214,11 @@ Electron App
 
 ## Build Phases
 
-| Phase | Description | Status |
-|---|---|---|
+| Phase                                       | Description                                                        | Status   |
+| ------------------------------------------- | ------------------------------------------------------------------ | -------- |
 | [Phase 1](./phase-1-core-infrastructure.md) | Core infrastructure: Swift CLI, IPC layer, file management, SQLite | Planning |
-| [Phase 2](./phase-2-processing-pipeline.md) | Processing pipeline: Whisper transcription, LLM post-processing | Planning |
-| [Phase 3](./phase-3-ui.md) | UI: all screens, navigation, settings, journal | Planning |
+| [Phase 2](./phase-2-processing-pipeline.md) | Processing pipeline: Whisper transcription, LLM post-processing    | Planning |
+| [Phase 3](./phase-3-ui.md)                  | UI: all screens, navigation, settings, journal                     | Planning |
 
 ---
 

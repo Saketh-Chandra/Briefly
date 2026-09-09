@@ -422,6 +422,167 @@ describe('llm:process — retryable HTTP failures', () => {
   })
 })
 
+describe('llm:process — partial progress then failure', () => {
+  const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue(VALID_SETTINGS)
+    mockGetApiKey.mockResolvedValue('sk-test')
+    sender.send.mockClear()
+    registerLlmHandlers(() => sender as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('emits summary progress then marks the meeting error when the to-dos call fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ choices: [{ message: { content: SUMMARY_JSON } }] })
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          statusText: 'Bad Gateway',
+          text: async () => 'todos failed'
+        })
+    )
+
+    const id = seedMeeting()
+    insertTranscript({
+      meetingId: id,
+      content: 'brief transcript that fits in one pass',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    await expect(invoke('llm:process', id)).rejects.toThrow(/LLM error \(502\)/)
+    expect(sender.send).toHaveBeenCalledWith(
+      'llm:progress',
+      expect.objectContaining({ meetingId: id, step: 1, label: 'Summarizing…' })
+    )
+    expect(sender.send).toHaveBeenCalledWith(
+      'llm:progress',
+      expect.objectContaining({ meetingId: id, step: 2, label: 'Extracting to-dos…' })
+    )
+    expect(sender.send).not.toHaveBeenCalledWith('llm:done', expect.anything())
+    expect(getMeetingById(id)?.status).toBe('error')
+    expect(getSummary(id)).toBeNull()
+    expect(notifyError).toHaveBeenCalledWith('Summarisation', expect.stringMatching(/502/))
+  })
+})
+
+function stubLlmFetchBySchema(): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+    const body = JSON.parse(init.body) as {
+      response_format?: { json_schema?: { name?: string } }
+    }
+    const name = body.response_format?.json_schema?.name
+    if (name === 'meeting_summary') {
+      return { ok: true, json: async () => ({ choices: [{ message: { content: SUMMARY_JSON } }] }) }
+    }
+    if (name === 'meeting_todos') {
+      return { ok: true, json: async () => ({ choices: [{ message: { content: TODOS_JSON } }] }) }
+    }
+    return { ok: true, json: async () => ({ choices: [{ message: { content: JOURNAL_TEXT } }] }) }
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('llm:process — long transcript map-reduce', () => {
+  const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+
+  beforeEach(() => {
+    handlers.clear()
+    _setTestDbPath(':memory:')
+    mockGetSettings.mockReturnValue(VALID_SETTINGS)
+    mockGetApiKey.mockResolvedValue('sk-test')
+    sender.send.mockClear()
+    registerLlmHandlers(() => sender as never)
+  })
+
+  afterEach(() => {
+    _resetTestDb()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('uses the chunked path, emits chunked progress, and persists the reduced summary', async () => {
+    const fetchMock = stubLlmFetchBySchema()
+    const id = seedMeeting()
+    const long = 'x'.repeat(CHUNK_THRESHOLD_CHARS + 1)
+    insertTranscript({ meetingId: id, content: long, chunks: null, model: 'whisper-tiny' })
+
+    const result = await invoke('llm:process', id)
+
+    expect(chunkText(long).length).toBeGreaterThan(1)
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(3)
+    expect(sender.send).toHaveBeenCalledWith(
+      'llm:progress',
+      expect.objectContaining({ meetingId: id, label: 'Summarizing (chunked)…' })
+    )
+    expect(result).toMatchObject({
+      title: 'Standup',
+      summary: 'We discussed the sprint.',
+      journal: JOURNAL_TEXT
+    })
+    expect(getMeetingById(id)?.status).toBe('done')
+    expect(getSummary(id)?.journal).toBe(JOURNAL_TEXT)
+    expect(sender.send).toHaveBeenCalledWith('llm:done', { meetingId: id })
+  })
+
+  it('marks the meeting error when a reduce-step fetch fails after the map phase', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const body = JSON.parse(init.body) as {
+          response_format?: { json_schema?: { name?: string } }
+        }
+        const name = body.response_format?.json_schema?.name
+        if (name === 'meeting_summary') {
+          return {
+            ok: true,
+            json: async () => ({ choices: [{ message: { content: SUMMARY_JSON } }] })
+          }
+        }
+        if (name === 'meeting_todos') {
+          return {
+            ok: true,
+            json: async () => ({ choices: [{ message: { content: TODOS_JSON } }] })
+          }
+        }
+        return {
+          ok: false,
+          status: 502,
+          statusText: 'Bad Gateway',
+          text: async () => 'journal failed'
+        }
+      })
+    )
+
+    const id = seedMeeting()
+    insertTranscript({
+      meetingId: id,
+      content: 'x'.repeat(CHUNK_THRESHOLD_CHARS + 1),
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    await expect(invoke('llm:process', id)).rejects.toThrow()
+    expect(getMeetingById(id)?.status).toBe('error')
+  })
+})
+
 describe('llm:test-connection', () => {
   beforeEach(() => {
     handlers.clear()

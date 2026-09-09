@@ -55,6 +55,8 @@ beforeEach(() => {
 })
 
 describe('SourcePicker', () => {
+  // Radix dropdown open is pointer-capture + portal work (~500ms). Keep user-event;
+  // do not add waitFor timeouts beyond the default.
   it('loads sources when the menu opens and lists screens and windows', async () => {
     vi.mocked(api.getSources).mockResolvedValue([...screens, ...windows])
     const user = userEvent.setup()

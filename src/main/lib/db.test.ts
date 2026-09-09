@@ -37,8 +37,19 @@ import {
   updateJournal,
   getMeetingDetail,
   resetStuckMeetings,
-  updateMeetingStatus
+  updateMeetingStatus,
+  getDb
 } from './db'
+import { meetings } from './schema'
+import { eq, sql } from 'drizzle-orm'
+
+function setTitle(id: number, title: string): void {
+  getDb()
+    .update(meetings)
+    .set({ title, updated_at: sql`(datetime('now'))` })
+    .where(eq(meetings.id, id))
+    .run()
+}
 
 function seedMeeting(overrides?: Partial<{ sessionId: string; audioPath: string }>): number {
   return insertMeeting({
@@ -144,6 +155,39 @@ describe('DB contract — search behavior', () => {
   it('returns empty array for an empty query', () => {
     seedMeeting({ sessionId: 'search-test-3' })
     expect(searchMeetings('')).toEqual([])
+  })
+
+  it('ranks a title match above an FTS transcript match', () => {
+    const titleId = seedMeeting({ sessionId: 'search-rank-title' })
+    setTitle(titleId, 'Revenue Review')
+    insertTranscript({
+      meetingId: titleId,
+      content: 'unrelated standup notes',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    const ftsId = seedMeeting({ sessionId: 'search-rank-fts' })
+    setTitle(ftsId, 'Other Meeting')
+    insertTranscript({
+      meetingId: ftsId,
+      content: 'quarterly revenue discussion',
+      chunks: null,
+      model: 'whisper-tiny'
+    })
+
+    const results = searchMeetings('revenue')
+    expect(results[0]?.id).toBe(titleId)
+    expect(results.some((m) => m.id === ftsId)).toBe(true)
+  })
+
+  it('caps large libraries at 50 results', () => {
+    const token = `uniqrank${Math.random().toString(16).slice(2)}`
+    for (let i = 0; i < 60; i++) {
+      const id = seedMeeting({ sessionId: `search-limit-${i}-${token}` })
+      setTitle(id, `${token} meeting ${i}`)
+    }
+    expect(searchMeetings(token)).toHaveLength(50)
   })
 })
 

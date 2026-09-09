@@ -92,6 +92,20 @@ Phase 3 is complete when all of the following are true:
 - High-impact recovery and resilience workflows have regression coverage.
 - Any added coverage thresholds or policy tightening are based on stable historical CI behavior, not aspiration.
 
+## Status
+
+**In progress** as of 2026-09-08.
+
+Release smoke checklist: [`docs/release-smoke-checklist.md`](../release-smoke-checklist.md). Quality follow-ups: [notes/testing-phase-2-quality.md](./notes/testing-phase-2-quality.md).
+
+Silent list-load failures on Dashboard, Recordings, and Journal remain intended product behavior: local IPC/SQLite errors keep the page chrome and primary CTA usable rather than adding an error banner. Crash-guard tests are named as such.
+
+Landed this session: CI install pinning (`bun install --frozen-lockfile`, Bun + ESLint caches), honest page assertions and IPC reload fires, faster Settings/Onboarding/Recordings search, import + todo/journal UI persistence, search ranking/limit, LLM map-reduce plus reduce-step failure, pipeline cancel/restart.
+
+Resilience follow-up: worker error mid-transcription with retry, IPC refresh storms + unmount detach on Dashboard/Recordings, LLM partial progress then to-dos failure (IPC + renderer `processTranscript` throw).
+
+Still open for later Phase 3 sessions: coverage-threshold decision after more CI history; watch Settings Radix dialog time; any remaining resilience gaps that only show up in packaged builds.
+
 ## Non-Goals
 
 - Do not force coverage thresholds just to appear mature.

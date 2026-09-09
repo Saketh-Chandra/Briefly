@@ -21,6 +21,8 @@ runs:
 
     - name: Set up Bun
       uses: oven-sh/setup-bun@v2
+      with:
+        cache: true
 
     - name: Cache Bun dependencies
       uses: actions/cache@v5
@@ -30,6 +32,14 @@ runs:
         restore-keys: |
           ${{ runner.os }}-bun-
 
+    - name: Cache ESLint
+      uses: actions/cache@v5
+      with:
+        path: .eslintcache
+        key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'package.json') }}
+        restore-keys: |
+          ${{ runner.os }}-eslint-
+
     - name: Install dependencies
       shell: bash
-      run: bun install
+      run: bun install --frozen-lockfile

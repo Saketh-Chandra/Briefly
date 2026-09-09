@@ -3,6 +3,40 @@ import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Onboarding from './Onboarding'
 
+// Wizard tests cover step wiring, not spring physics. Identity stubs skip Motion time.
+vi.mock('motion/react', async () => {
+  const React = await import('react')
+  function passthrough(
+    tag: string
+  ): (props: {
+    children?: React.ReactNode
+    className?: string
+    style?: React.CSSProperties
+  }) => React.ReactElement {
+    function MotionTag({
+      children,
+      className,
+      style
+    }: {
+      children?: React.ReactNode
+      className?: string
+      style?: React.CSSProperties
+    }): React.ReactElement {
+      return React.createElement(tag, { className, style }, children)
+    }
+    return MotionTag
+  }
+  return {
+    AnimatePresence: ({ children }: { children: React.ReactNode }): React.ReactNode => children,
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, prop) => passthrough(String(prop))
+      }
+    )
+  }
+})
+
 vi.mock('../components/onboarding/LlmSetupStep', () => ({
   default: () => <div>Connect your LLM</div>
 }))

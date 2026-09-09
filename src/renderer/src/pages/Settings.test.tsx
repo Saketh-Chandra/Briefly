@@ -102,13 +102,9 @@ describe('Settings — loading', () => {
     stubLoadedApis()
   })
 
-  it('renders the page heading', async () => {
-    await renderSettings()
-    expect(screen.getByRole('heading', { name: /settings/i })).toBeInTheDocument()
-  })
-
   it('loads settings and disk usage on mount', async () => {
     await renderSettings()
+    expect(screen.getByRole('heading', { name: /settings/i })).toBeInTheDocument()
     expect(api.getSettings).toHaveBeenCalledOnce()
     expect(api.getDiskUsage).toHaveBeenCalledOnce()
   })
@@ -257,27 +253,24 @@ describe('Settings — mirror test UI', () => {
   })
 
   it('tests a HuggingFace mirror and shows reachable state', async () => {
-    const user = userEvent.setup()
     vi.mocked(api.testMirror).mockResolvedValue({ ok: true })
     await renderSettings()
-    await user.click(screen.getByRole('button', { name: /advanced/i }))
+    fireEvent.click(screen.getByRole('button', { name: /advanced/i }))
     const input = await screen.findByLabelText(/huggingface mirror url/i)
-    await user.type(input, 'https://hf-mirror.com')
-    await user.click(screen.getByRole('button', { name: /^test$/i }))
+    fireEvent.change(input, { target: { value: 'https://hf-mirror.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /^test$/i }))
     await waitFor(() => expect(api.testMirror).toHaveBeenCalledWith('https://hf-mirror.com'))
     expect(await screen.findByText(/reachable/i)).toBeInTheDocument()
   })
 
   it('shows the mirror error when the ping fails', async () => {
-    const user = userEvent.setup()
     vi.mocked(api.testMirror).mockResolvedValue({ ok: false, error: 'Connection refused' })
     await renderSettings()
-    await user.click(screen.getByRole('button', { name: /advanced/i }))
-    await user.type(
-      await screen.findByLabelText(/huggingface mirror url/i),
-      'https://bad-mirror.test'
-    )
-    await user.click(screen.getByRole('button', { name: /^test$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /advanced/i }))
+    fireEvent.change(await screen.findByLabelText(/huggingface mirror url/i), {
+      target: { value: 'https://bad-mirror.test' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^test$/i }))
     expect(await screen.findByTitle('Connection refused')).toBeInTheDocument()
   })
 })
@@ -299,14 +292,15 @@ describe('Settings — proxy save', () => {
   })
 
   it('saves a manual HTTP proxy including the HTTPS reuse flag', async () => {
-    const user = userEvent.setup()
     await renderSettings()
-    await user.click(screen.getByRole('radio', { name: /manual proxy configuration/i }))
-    await user.type(screen.getByLabelText(/http proxy/i), 'proxy.example.com')
-    await user.type(screen.getAllByLabelText(/^port$/i)[0], '8080')
-    await user.click(screen.getByRole('checkbox', { name: /also use this proxy for https/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /manual proxy configuration/i }))
+    fireEvent.change(screen.getByLabelText(/http proxy/i), {
+      target: { value: 'proxy.example.com' }
+    })
+    fireEvent.change(screen.getAllByLabelText(/^port$/i)[0], { target: { value: '8080' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /also use this proxy for https/i }))
     const section = screen.getByRole('heading', { name: /proxy configuration/i }).closest('section')
-    await user.click(within(section as HTMLElement).getByRole('button', { name: /^save$/i }))
+    fireEvent.click(within(section as HTMLElement).getByRole('button', { name: /^save$/i }))
     await waitFor(() =>
       expect(api.saveSettings).toHaveBeenCalledWith({
         proxy: {

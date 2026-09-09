@@ -221,4 +221,179 @@ describe('startPipelineAtom — transcribe and process', () => {
     expect(store.get(transcriptionAtom).stage).toBe('processing-llm')
     expect(store.get(transcriptionAtom).chunks).toHaveLength(1)
   })
+
+  it('keeps LLM progress then errors when processTranscript fails', async () => {
+    let llmProgressCb:
+      | ((event: { meetingId: number; step: number; total: number; label: string }) => void)
+      | undefined
+    vi.mocked(api.onLlmProgress).mockImplementation((cb) => {
+      llmProgressCb = cb
+      return () => {}
+    })
+    vi.mocked(api.processTranscript).mockImplementation(async () => {
+      llmProgressCb?.({ meetingId: 8, step: 1, total: 3, label: 'Summarizing…' })
+      llmProgressCb?.({ meetingId: 8, step: 2, total: 3, label: 'Extracting to-dos…' })
+      throw new Error('LLM 502')
+    })
+
+    const store = createStore()
+    await store.set(startPipelineAtom, 8)
+    expect(store.get(transcriptionAtom)).toMatchObject({
+      stage: 'error',
+      failedStage: 'processing-llm',
+      error: 'LLM 502',
+      llmStep: 2,
+      llmLabel: 'Extracting to-dos…'
+    })
+    expect(api.saveTranscript).toHaveBeenCalledOnce()
+  })
+})
+
+describe('startPipelineAtom — cancel and restart', () => {
+  const workers: { terminate: ReturnType<typeof vi.fn> }[] = []
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    workers.length = 0
+    mockInitWhisperWorker.mockResolvedValue(undefined)
+    vi.mocked(api.onLlmProgress).mockReturnValue(() => {})
+    vi.mocked(api.onLlmDone).mockReturnValue(() => {})
+    vi.mocked(api.getPaths).mockResolvedValue({ userData: '/tmp', modelCachePath: '/tmp/models' })
+    vi.mocked(api.getSettings).mockResolvedValue(SETTINGS)
+    vi.mocked(api.startTranscription).mockResolvedValue({ audioPath: '/tmp/a.webm' })
+    vi.mocked(api.readAudio).mockResolvedValue(new ArrayBuffer(8))
+    stubCaches([`https://huggingface.co/${SETTINGS.whisperModel}/config.json`])
+
+    class MockOfflineAudioContext {
+      decodeAudioData = vi.fn().mockResolvedValue({
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        duration: 1,
+        getChannelData: () => new Float32Array(16)
+      })
+    }
+    vi.stubGlobal('OfflineAudioContext', MockOfflineAudioContext)
+
+    class HangingWorker {
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: ((e: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage(): void {
+        /* stay in transcribing until terminated */
+      }
+      constructor() {
+        workers.push(this)
+      }
+    }
+    vi.stubGlobal('Worker', HangingWorker)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('terminates an in-flight worker when a new pipeline starts', async () => {
+    const store = createStore()
+    void store.set(startPipelineAtom, 8)
+    await vi.waitFor(() => expect(store.get(transcriptionAtom).stage).toBe('transcribing'))
+    expect(workers).toHaveLength(1)
+
+    void store.set(startPipelineAtom, 9)
+    await vi.waitFor(() => expect(workers[0].terminate).toHaveBeenCalled())
+    expect(store.get(transcriptionAtom).meetingId).toBe(9)
+  })
+
+  it('terminates the worker when resetTranscriptionAtom runs mid-flight', async () => {
+    const store = createStore()
+    void store.set(startPipelineAtom, 8)
+    await vi.waitFor(() => expect(store.get(transcriptionAtom).stage).toBe('transcribing'))
+    store.set(resetTranscriptionAtom)
+    expect(workers[0].terminate).toHaveBeenCalled()
+    expect(store.get(transcriptionAtom)).toEqual(initialTranscriptionState)
+  })
+})
+
+describe('startPipelineAtom — worker error mid-transcription', () => {
+  let workerMode: 'error' | 'ok' = 'error'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    workerMode = 'error'
+    mockInitWhisperWorker.mockResolvedValue(undefined)
+    vi.mocked(api.onLlmProgress).mockReturnValue(() => {})
+    vi.mocked(api.onLlmDone).mockReturnValue(() => {})
+    vi.mocked(api.getPaths).mockResolvedValue({ userData: '/tmp', modelCachePath: '/tmp/models' })
+    vi.mocked(api.getSettings).mockResolvedValue(SETTINGS)
+    vi.mocked(api.startTranscription).mockResolvedValue({ audioPath: '/tmp/a.webm' })
+    vi.mocked(api.readAudio).mockResolvedValue(new ArrayBuffer(8))
+    vi.mocked(api.saveTranscript).mockResolvedValue(undefined)
+    vi.mocked(api.processTranscript).mockResolvedValue({
+      title: 'Standup',
+      summary: 'Notes',
+      todos: [],
+      journal: 'Journal'
+    })
+    stubCaches([`https://huggingface.co/${SETTINGS.whisperModel}/config.json`])
+
+    class MockOfflineAudioContext {
+      decodeAudioData = vi.fn().mockResolvedValue({
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        duration: 1,
+        getChannelData: () => new Float32Array(16)
+      })
+    }
+    vi.stubGlobal('OfflineAudioContext', MockOfflineAudioContext)
+
+    class SwitchingWorker {
+      onmessage: ((e: MessageEvent) => void) | null = null
+      onerror: ((e: ErrorEvent) => void) | null = null
+      terminate = vi.fn()
+      postMessage(): void {
+        queueMicrotask(() => {
+          if (workerMode === 'error') {
+            this.onmessage?.({
+              data: { type: 'error', message: 'gpu lost' }
+            } as MessageEvent)
+            return
+          }
+          this.onmessage?.({
+            data: { type: 'chunk', text: 'hello', start: 0, end: 1 }
+          } as MessageEvent)
+          this.onmessage?.({ data: { type: 'done', text: 'hello' } } as MessageEvent)
+        })
+      }
+    }
+    vi.stubGlobal('Worker', SwitchingWorker)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('records failedStage transcribing and does not save a transcript', async () => {
+    const store = createStore()
+    await store.set(startPipelineAtom, 8)
+    expect(store.get(transcriptionAtom)).toMatchObject({
+      meetingId: 8,
+      stage: 'error',
+      failedStage: 'transcribing',
+      error: 'gpu lost'
+    })
+    expect(api.saveTranscript).not.toHaveBeenCalled()
+    expect(api.processTranscript).not.toHaveBeenCalled()
+  })
+
+  it('can restart the pipeline after a worker error', async () => {
+    const store = createStore()
+    await store.set(startPipelineAtom, 8)
+    expect(store.get(transcriptionAtom).stage).toBe('error')
+
+    workerMode = 'ok'
+    await store.set(startPipelineAtom, 8)
+    expect(store.get(transcriptionAtom).stage).toBe('processing-llm')
+    expect(store.get(transcriptionAtom).failedStage).toBeNull()
+    expect(api.saveTranscript).toHaveBeenCalledOnce()
+    expect(api.processTranscript).toHaveBeenCalledWith(8)
+  })
 })

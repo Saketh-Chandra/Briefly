@@ -55,18 +55,10 @@ describe('Journal — rendering', () => {
     vi.mocked(api.getMeetingsByDate).mockResolvedValue([])
   })
 
-  it('renders the page heading', async () => {
-    await renderJournal()
-    expect(screen.getByRole('heading', { name: /journal/i })).toBeInTheDocument()
-  })
-
-  it('loads meetings for the route date', async () => {
+  it('loads meetings for the route date and shows empty chrome when none exist', async () => {
     await renderJournal('/journal/2024-06-15')
     expect(api.getMeetingsByDate).toHaveBeenCalledWith('2024-06-15')
-  })
-
-  it('shows empty state when the day has no meetings', async () => {
-    await renderJournal()
+    expect(screen.getByRole('heading', { name: /journal/i })).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByText(/no meetings recorded on this day/i)).toBeInTheDocument()
     )
@@ -105,7 +97,7 @@ describe('Journal — load states', () => {
     })
   })
 
-  it('stays on the empty chrome when getMeetingsByDate rejects', async () => {
+  it('does not crash when getMeetingsByDate rejects — empty chrome stays (silent swallow)', async () => {
     vi.mocked(api.getMeetingsByDate).mockRejectedValue(new Error('db unavailable'))
     await renderJournal()
     expect(screen.getByRole('heading', { name: /journal/i })).toBeInTheDocument()

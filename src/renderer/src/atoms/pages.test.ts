@@ -285,6 +285,22 @@ describe('filteredMeetingsAtom', () => {
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe(1)
   })
+
+  it('filters a large library down to the matching status only', () => {
+    const store = createStore()
+    const meetings = Array.from({ length: 80 }, (_, i) =>
+      makeMeeting({
+        id: i + 1,
+        title: `Meeting ${i + 1}`,
+        status: i % 10 === 0 ? 'error' : 'done'
+      })
+    )
+    store.set(meetingsAtom, meetings)
+    store.set(statusFilterAtom, 'error')
+    const result = store.get(filteredMeetingsAtom)
+    expect(result).toHaveLength(8)
+    expect(result.every((m) => m.status === 'error')).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
