@@ -97,6 +97,10 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;')
 }
 
+function code(value: string): string {
+  return `<code>${escapeHtml(value)}</code>`
+}
+
 function relPath(file: string): string {
   const root = process.env.GITHUB_WORKSPACE || process.cwd()
   return core.toPosixPath(relative(root, file))
@@ -221,14 +225,16 @@ function addTests(resultsFile: JsonRead<VitestJsonResults>): void {
   if (resultsFile.missing) {
     core.warning('No test-results.json was produced')
     core.summary.addQuote(
-      'No `test-results.json` was produced. The test step may have failed before Vitest wrote a report.'
+      `No ${code('test-results.json')} was produced. The test step may have failed before Vitest wrote a report.`
     )
     return
   }
 
   if (resultsFile.error) {
     core.warning(`Could not parse test-results.json: ${resultsFile.error}`)
-    core.summary.addQuote(`Could not parse \`test-results.json\`: ${resultsFile.error}`)
+    core.summary.addQuote(
+      `Could not parse ${code('test-results.json')}: ${escapeHtml(resultsFile.error)}`
+    )
     return
   }
 
@@ -273,7 +279,7 @@ function addTests(resultsFile: JsonRead<VitestJsonResults>): void {
       ])
 
     if (failed.length > shown.length) {
-      core.summary.addRaw(`_…and ${failed.length - shown.length} more._`, true)
+      core.summary.addRaw(`<p><em>…and ${failed.length - shown.length} more.</em></p>`, true)
     }
 
     const detail = shown
@@ -299,7 +305,7 @@ function addTests(resultsFile: JsonRead<VitestJsonResults>): void {
     core.summary
       .addHeading('Snapshots', 3)
       .addRaw(
-        `${snapshot.unmatched ?? 0} unmatched snapshot(s) across ${snapshot.filesUnmatched ?? 0} file(s).`,
+        `<p>${snapshot.unmatched ?? 0} unmatched snapshot(s) across ${snapshot.filesUnmatched ?? 0} file(s).</p>`,
         true
       )
   }
@@ -309,13 +315,13 @@ function addCoverage(coverageFile: JsonRead<CoverageSummaryFile>): void {
   core.summary.addHeading('Coverage', 2)
 
   if (coverageFile.missing) {
-    core.summary.addQuote('No `coverage/coverage-summary.json` was produced.')
+    core.summary.addQuote(`No ${code('coverage/coverage-summary.json')} was produced.`)
     return
   }
 
   if (coverageFile.error) {
     core.summary.addQuote(
-      `Could not parse \`coverage/coverage-summary.json\`: ${coverageFile.error}`
+      `Could not parse ${code('coverage/coverage-summary.json')}: ${escapeHtml(coverageFile.error)}`
     )
     return
   }
@@ -339,7 +345,10 @@ function addCoverage(coverageFile: JsonRead<CoverageSummaryFile>): void {
 
   core.summary
     .addTable(rows)
-    .addRaw('_HTML report is uploaded as the `coverage-report` artifact._', true)
+    .addRaw(
+      `<p><em>HTML report is uploaded as the ${code('coverage-report')} artifact.</em></p>`,
+      true
+    )
 }
 
 function overallStatus(resultsFile: JsonRead<VitestJsonResults>): string {
@@ -360,7 +369,9 @@ async function main(): Promise<void> {
   const title = job === 'coverage' ? 'Coverage' : 'CI'
   const hasCoverage = Boolean(coverageFile.data?.total) || job === 'coverage'
 
-  core.summary.addHeading(title).addRaw(`**Status:** ${overallStatus(resultsFile)}`, true)
+  core.summary
+    .addHeading(title)
+    .addRaw(`<p><strong>Status:</strong> ${overallStatus(resultsFile)}</p>`, true)
 
   addChecks()
   addTests(resultsFile)
